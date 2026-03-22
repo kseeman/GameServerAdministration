@@ -1,0 +1,304 @@
+name: Deploy to Staging
+
+on:
+  push:
+    branches: [ develop ]
+    paths:
+      - 'scripts/**'
+      - 'environments/staging/**'
+      - 'games/**'
+      - 'systemd/**'
+  
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deployment even if no changes detected'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  pre-deployment-checks:
+    name: Pre-Deployment Validation
+    runs-on: ubuntu-latest
+    
+    outputs:
+      should_deploy: ${{ steps.check-changes.outputs.should_deploy }}
+      
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 2  # Need previous commit for comparison
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq shellcheck
+    
+    - name: Check for Relevant Changes
+      id: check-changes
+      run: |
+        echo "Checking for deployment-relevant changes..."
+        
+        if [[ "${{ github.event.inputs.force_deploy }}" == "true" ]]; then
+          echo "Force deployment requested"
+          echo "should_deploy=true" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        
+        # Check if any files that affect staging deployment have changed
+        changed_files=$(git diff --name-only HEAD^ HEAD)
+        echo "Changed files:"
+        echo "$changed_files"
+        
+        deployment_relevant=false
+        while read -r file; do
+          if [[ "$file" =~ ^scripts/ ]] || \
+             [[ "$file" =~ ^environments/staging/ ]] || \
+             [[ "$file" =~ ^games/ ]] || \
+             [[ "$file" =~ ^systemd/ ]]; then
+            echo "Deployment-relevant change detected: $file"
+            deployment_relevant=true
+            break
+          fi
+        done <<< "$changed_files"
+        
+        echo "should_deploy=$deployment_relevant" >> $GITHUB_OUTPUT
+        
+        if [[ "$deployment_relevant" == "true" ]]; then
+          echo "✅ Changes detected that require staging deployment"
+        else
+          echo "ℹ️  No deployment-relevant changes detected"
+        fi
+    
+    - name: Validate Staging Configuration
+      run: |
+        echo "Validating staging environment configuration..."
+        
+        # Check staging registry exists and is valid
+        if [[ -f "environments/staging/registry.json" ]]; then
+          jq empty "environments/staging/registry.json" || exit 1
+          echo "✅ Staging registry is valid JSON"
+        else
+          echo "❌ Staging registry not found"
+          exit 1
+        fi
+        
+        # Check infrastructure config exists
+        if [[ -f "environments/staging/infrastructure.json" ]]; then
+          jq empty "environments/staging/infrastructure.json" || exit 1
+          echo "✅ Staging infrastructure config is valid"
+        else
+          echo "❌ Staging infrastructure config not found"
+          exit 1
+        fi
+    
+    - name: Run Security Checks
+      run: |
+        echo "Running security checks..."
+        
+        # Check for potential secrets
+        if grep -r -i "password\|secret\|token" environments/staging/ || true; then
+          echo "⚠️  Warning: Potential secrets found in staging config"
+          echo "Please review staging configuration files"
+        fi
+        
+        echo "Security checks completed"
+
+  deploy-staging:
+    name: Deploy to Staging Environment
+    runs-on: ubuntu-latest
+    needs: pre-deployment-checks
+    if: needs.pre-deployment-checks.outputs.should_deploy == 'true'
+    
+    environment:
+      name: staging
+      url: ${{ vars.STAGING_SERVER_URL }}
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Setup SSH Key
+      run: |
+        echo "Setting up SSH key for staging deployment..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H "${{ vars.STAGING_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Prepare Deployment Package
+      run: |
+        echo "Preparing deployment package..."
+        
+        # Create deployment archive
+        tar -czf gameserver-admin-staging.tar.gz \
+          scripts/ \
+          environments/staging/ \
+          games/ \
+          systemd/ \
+          --exclude='environments/production' \
+          --exclude='.git'
+        
+        echo "Deployment package created: gameserver-admin-staging.tar.gz"
+        ls -lh gameserver-admin-staging.tar.gz
+    
+    - name: Deploy to Staging Server
+      run: |
+        echo "Deploying to staging server..."
+        
+        # Copy deployment package to staging server
+        scp -i ~/.ssh/id_rsa gameserver-admin-staging.tar.gz \
+          "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}:/tmp/"
+        
+        # Execute deployment on staging server
+        ssh -i ~/.ssh/id_rsa "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" << 'ENDSSH'
+          set -e
+          
+          echo "Starting staging deployment..."
+          
+          # Backup current deployment
+          if [[ -d "/opt/gameserver-admin" ]]; then
+            sudo cp -r /opt/gameserver-admin /opt/gameserver-admin.backup.$(date +%Y%m%d-%H%M%S)
+            echo "Current deployment backed up"
+          fi
+          
+          # Extract new deployment
+          sudo mkdir -p /opt/gameserver-admin
+          cd /opt/gameserver-admin
+          sudo tar -xzf /tmp/gameserver-admin-staging.tar.gz --strip-components=0
+          
+          # Set correct permissions
+          sudo chown -R root:gameserver /opt/gameserver-admin
+          sudo chmod +x /opt/gameserver-admin/scripts/*/*.sh
+          sudo chmod +x /opt/gameserver-admin/systemd/*.sh
+          
+          echo "Staging deployment completed successfully"
+        ENDSSH
+    
+    - name: Run Post-Deployment Health Check
+      run: |
+        echo "Running post-deployment health checks..."
+        
+        # Run health check on staging server
+        ssh -i ~/.ssh/id_rsa "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" << 'ENDSSH'
+          set -e
+          
+          cd /opt/gameserver-admin
+          
+          # Test that scripts are accessible and executable
+          if [[ -x "scripts/deployment/health-check.sh" ]]; then
+            echo "Running staging health check..."
+            sudo -u gameserver ./scripts/deployment/health-check.sh --env staging
+          else
+            echo "Health check script not found or not executable"
+            exit 1
+          fi
+          
+          # Test that core utilities load without error
+          if source scripts/shared/server-utils.sh; then
+            echo "✅ Core utilities load successfully"
+          else
+            echo "❌ Failed to load core utilities"
+            exit 1
+          fi
+          
+          echo "Health checks passed"
+        ENDSSH
+    
+    - name: Update Deployment Status
+      if: success()
+      run: |
+        echo "✅ Staging deployment completed successfully"
+        echo "Deployment timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Commit SHA: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        # Clean up SSH key
+        rm -f ~/.ssh/id_rsa
+        
+        # Clean up deployment package
+        rm -f gameserver-admin-staging.tar.gz
+
+  post-deployment-tests:
+    name: Post-Deployment Integration Tests
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+    if: success()
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Setup SSH Key
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ secrets.STAGING_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H "${{ vars.STAGING_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Test Staging Environment
+      run: |
+        echo "Testing staging environment functionality..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.STAGING_USER }}@${{ vars.STAGING_HOST }}" << 'ENDSSH'
+          set -e
+          
+          cd /opt/gameserver-admin
+          
+          echo "Testing server manager..."
+          # Test that server manager can show help
+          sudo -u gameserver ./scripts/core/server-manager.sh --help > /dev/null
+          echo "✅ Server manager help works"
+          
+          echo "Testing deployment scripts..."
+          # Test deployment script dry run
+          sudo -u gameserver ./scripts/deployment/deploy.sh --dry-run --env staging --game palworld --instance test
+          echo "✅ Deployment script dry run works"
+          
+          echo "Testing systemd service generation..."
+          # Test systemd service generation
+          sudo -u gameserver ./systemd/generate-services.sh --dry-run --env staging
+          echo "✅ Systemd service generation works"
+          
+          echo "All staging tests passed!"
+        ENDSSH
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -f ~/.ssh/id_rsa
+
+  notify-deployment:
+    name: Notify Deployment Status
+    runs-on: ubuntu-latest
+    needs: [deploy-staging, post-deployment-tests]
+    if: always()
+    
+    steps:
+    - name: Report Deployment Status
+      run: |
+        echo "=== Staging Deployment Summary ==="
+        echo "Deployment: ${{ needs.deploy-staging.result }}"
+        echo "Integration Tests: ${{ needs.post-deployment-tests.result }}"
+        echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "===================================="
+        
+        if [[ "${{ needs.deploy-staging.result }}" == "success" ]] && \
+           [[ "${{ needs.post-deployment-tests.result }}" == "success" ]]; then
+          echo "🎉 Staging deployment completed successfully!"
+          echo "The staging environment is ready for testing."
+        elif [[ "${{ needs.deploy-staging.result }}" == "failure" ]]; then
+          echo "❌ Staging deployment failed"
+          echo "Please check the deployment logs and fix any issues."
+          exit 1
+        else
+          echo "⚠️  Staging deployment completed with issues"
+          echo "Please review the test results and fix any failing tests."
+        fi

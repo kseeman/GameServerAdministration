@@ -1,0 +1,37 @@
+{
+  "game": "palworld",
+  "environment": "staging",
+  "supported_instances": ["test", "tournament", "hardcore", "casual"],
+  "game_config": {
+    "name": "Palworld",
+    "base_port": 9215,
+    "docker_image": "thijsvanloef/palworld-server-docker:latest",
+    "data_volume_path": "/palworld",
+    "config_files": ["PalWorldSettings.ini"],
+    "required_presets": ["default"]
+  },
+  "instances": {
+    "test": {
+      "description": "Testing server instance",
+      "default_preset": "default",
+      "port_offset": 0
+    },
+    "tournament": {
+      "description": "Tournament competition server",
+      "default_preset": "tournament",
+      "port_offset": 1
+    },
+    "hardcore": {
+      "description": "Maximum difficulty PvP server",
+      "default_preset": "hardcore",
+      "port_offset": 2
+    },
+    "casual": {
+      "description": "Relaxed gameplay server",
+      "default_preset": "casual",
+      "port_offset": 3
+    }
+  },
+  "created": "2026-03-22T16:15:00Z",
+  "version": "1.0"
+}

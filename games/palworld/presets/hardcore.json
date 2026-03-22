@@ -1,0 +1,27 @@
+{
+  "metadata": {
+    "name": "Hardcore",
+    "description": "Maximum difficulty survival mode",
+    "version": "1.0",
+    "created": "2026-03-22T15:36:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "Difficulty": "VeryHard",
+    "ExpRate": 0.8,
+    "CollectionDropRate": 0.5,
+    "DeathPenalty": "All",
+    "bEnableFastTravel": false,
+    "PlayerStomachDecreaseRate": 1.5,
+    "PlayerStaminaDecreaseRate": 1.3,
+    "PlayerAutoHPRegeneRate": 0.5,
+    "PalStomachDecreaseRate": 1.2,
+    "PalAutoHPRegeneRate": 0.7,
+    "BuildObjectDeteriorationDamageRate": 2.0,
+    "EnemyDropItemRate": 0.8,
+    "bEnableInvaderEnemy": true,
+    "DropItemAliveMaxHours": 0.5,
+    "PalEggDefaultHatchingTime": 96.0,
+    "WorkSpeedRate": 0.8
+  }
+}

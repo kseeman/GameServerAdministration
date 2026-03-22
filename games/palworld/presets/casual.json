@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "name": "Casual",
+    "description": "Relaxed gameplay with faster progression",
+    "version": "1.0",
+    "created": "2026-03-22T15:36:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "Difficulty": "Easy",
+    "ExpRate": 2.0,
+    "PalCaptureRate": 1.5,
+    "CollectionDropRate": 1.5,
+    "EnemyDropItemRate": 1.3,
+    "DeathPenalty": "None",
+    "PlayerStomachDecreaseRate": 0.7,
+    "PlayerStaminaDecreaseRate": 0.8,
+    "PlayerAutoHPRegeneRate": 1.5,
+    "PalAutoHPRegeneRate": 1.3,
+    "PalEggDefaultHatchingTime": 24.0,
+    "WorkSpeedRate": 1.5,
+    "DropItemAliveMaxHours": 3.0,
+    "BaseCampWorkerMaxNum": 20
+  }
+}

@@ -1,0 +1,446 @@
+name: Deploy to Production
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'scripts/**'
+      - 'environments/production/**'
+      - 'games/**'
+      - 'systemd/**'
+  
+  workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: 'Type "DEPLOY" to confirm production deployment'
+        required: true
+        type: string
+      rollback_enabled:
+        description: 'Enable automatic rollback on failure'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  production-safety-checks:
+    name: Production Safety Validation
+    runs-on: ubuntu-latest
+    
+    outputs:
+      deployment_approved: ${{ steps.validate-inputs.outputs.deployment_approved }}
+      
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Validate Deployment Confirmation
+      id: validate-inputs
+      run: |
+        echo "Validating production deployment request..."
+        
+        # For manual deployment, require explicit confirmation
+        if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+          if [[ "${{ github.event.inputs.confirm_production_deploy }}" != "DEPLOY" ]]; then
+            echo "❌ Production deployment not confirmed"
+            echo "Please type 'DEPLOY' in the confirmation field to proceed"
+            echo "deployment_approved=false" >> $GITHUB_OUTPUT
+            exit 1
+          else
+            echo "✅ Production deployment confirmed"
+            echo "deployment_approved=true" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "✅ Automatic deployment from main branch approved"
+          echo "deployment_approved=true" >> $GITHUB_OUTPUT
+        fi
+    
+    - name: Install Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y jq shellcheck
+    
+    - name: Validate Production Configuration
+      run: |
+        echo "Performing pre-deployment production validation..."
+        
+        # Check production registry exists and is valid
+        if [[ -f "environments/production/registry.json" ]]; then
+          jq empty "environments/production/registry.json" || exit 1
+          echo "✅ Production registry is valid"
+        else
+          echo "❌ Production registry not found"
+          exit 1
+        fi
+        
+        # Check infrastructure config exists
+        if [[ -f "environments/production/infrastructure.json" ]]; then
+          jq empty "environments/production/infrastructure.json" || exit 1
+          echo "✅ Production infrastructure config is valid"
+        else
+          echo "❌ Production infrastructure config not found"
+          exit 1
+        fi
+        
+        # Validate critical systemd templates exist
+        if [[ ! -f "systemd/templates/game-server@.service.template" ]]; then
+          echo "❌ Systemd service template missing"
+          exit 1
+        fi
+        
+        echo "Production configuration validation passed"
+    
+    - name: Security Scan for Production
+      run: |
+        echo "Running enhanced security scan for production deployment..."
+        
+        # Check for any hardcoded credentials
+        security_issues=false
+        
+        # Scan for potential secrets in production configs
+        if grep -r -i "password\|secret\|token" environments/production/; then
+          echo "❌ Potential secrets found in production configuration"
+          security_issues=true
+        fi
+        
+        # Check script permissions
+        find scripts/ -name "*.sh" -type f | while read -r script; do
+          perms=$(stat -c "%a" "$script")
+          if [[ "$perms" =~ [0-9][0-9][2367] ]]; then
+            echo "⚠️  World-writable script: $script (permissions: $perms)"
+          fi
+        done
+        
+        if [[ "$security_issues" == "true" ]]; then
+          echo "❌ Security issues detected - aborting production deployment"
+          exit 1
+        else
+          echo "✅ Security scan passed"
+        fi
+    
+    - name: Validate Required Scripts
+      run: |
+        echo "Validating required scripts for production..."
+        
+        required_scripts=(
+          "scripts/core/server-manager.sh"
+          "scripts/deployment/deploy.sh"
+          "scripts/deployment/health-check.sh"
+          "scripts/deployment/rollback.sh"
+          "scripts/shared/server-utils.sh"
+          "systemd/generate-services.sh"
+        )
+        
+        for script in "${required_scripts[@]}"; do
+          if [[ ! -f "$script" ]]; then
+            echo "❌ Required script missing: $script"
+            exit 1
+          elif [[ ! -x "$script" ]]; then
+            echo "❌ Script not executable: $script"
+            exit 1
+          fi
+        done
+        
+        echo "✅ All required scripts present and executable"
+
+  deploy-production:
+    name: Deploy to Production Environment
+    runs-on: ubuntu-latest
+    needs: production-safety-checks
+    if: needs.production-safety-checks.outputs.deployment_approved == 'true'
+    
+    environment:
+      name: production
+      url: ${{ vars.PRODUCTION_SERVER_URL }}
+    
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+    
+    - name: Setup SSH Key
+      run: |
+        echo "Setting up SSH key for production deployment..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H "${{ vars.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Create Production Backup
+      run: |
+        echo "Creating pre-deployment backup..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          if [[ -d "/opt/gameserver-admin" ]]; then
+            backup_dir="/opt/gameserver-admin.backup.$(date +%Y%m%d-%H%M%S)"
+            echo "Creating backup: $backup_dir"
+            sudo cp -r /opt/gameserver-admin "$backup_dir"
+            
+            # Keep only last 5 backups
+            sudo ls -dt /opt/gameserver-admin.backup.* | tail -n +6 | sudo xargs rm -rf 2>/dev/null || true
+            
+            echo "Backup created successfully"
+          else
+            echo "No existing deployment to backup"
+          fi
+        ENDSSH
+    
+    - name: Prepare Production Deployment Package
+      run: |
+        echo "Preparing production deployment package..."
+        
+        # Create deployment archive with production-only content
+        tar -czf gameserver-admin-production.tar.gz \
+          scripts/ \
+          environments/production/ \
+          games/ \
+          systemd/ \
+          --exclude='environments/staging' \
+          --exclude='.git' \
+          --exclude='*.backup.*'
+        
+        echo "Production deployment package created"
+        ls -lh gameserver-admin-production.tar.gz
+    
+    - name: Deploy to Production Server
+      run: |
+        echo "Deploying to production server..."
+        
+        # Copy deployment package to production server
+        scp -i ~/.ssh/id_rsa gameserver-admin-production.tar.gz \
+          "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}:/tmp/"
+        
+        # Execute production deployment
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          echo "Starting production deployment..."
+          echo "Deployment time: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          echo "Git commit: ${{ github.sha }}"
+          
+          # Stop any running game servers for maintenance
+          echo "Checking for running game servers..."
+          if systemctl list-units --state=active --type=service | grep -q "game-server@"; then
+            echo "Found active game servers - stopping for deployment"
+            sudo systemctl stop 'game-server@*.service' || true
+            sleep 5
+          fi
+          
+          # Extract new deployment
+          sudo mkdir -p /opt/gameserver-admin
+          cd /opt/gameserver-admin
+          sudo tar -xzf /tmp/gameserver-admin-production.tar.gz --strip-components=0
+          
+          # Set correct ownership and permissions
+          sudo chown -R root:gameserver /opt/gameserver-admin
+          sudo chmod +x /opt/gameserver-admin/scripts/*/*.sh
+          sudo chmod +x /opt/gameserver-admin/systemd/*.sh
+          
+          # Generate systemd services
+          echo "Regenerating systemd services..."
+          sudo -u gameserver /opt/gameserver-admin/systemd/generate-services.sh --env production
+          
+          # Reload systemd
+          sudo systemctl daemon-reload
+          
+          echo "Production deployment completed"
+        ENDSSH
+    
+    - name: Run Production Health Check
+      run: |
+        echo "Running production health checks..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          cd /opt/gameserver-admin
+          
+          echo "Running comprehensive health check..."
+          sudo -u gameserver ./scripts/deployment/health-check.sh --env production --comprehensive
+          
+          echo "Testing core functionality..."
+          # Test server manager
+          sudo -u gameserver ./scripts/core/server-manager.sh --help > /dev/null
+          
+          # Test that utilities can be loaded
+          source scripts/shared/server-utils.sh
+          
+          # Test deployment script
+          sudo -u gameserver ./scripts/deployment/deploy.sh --dry-run --env production --game palworld --instance test
+          
+          echo "✅ All production health checks passed"
+        ENDSSH
+    
+    - name: Restart Managed Services
+      run: |
+        echo "Restarting managed game servers..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          # Get list of enabled game server services
+          enabled_services=$(systemctl list-unit-files --type=service | grep -o 'game-server@[^[:space:]]*' | head -10 || echo "")
+          
+          if [[ -n "$enabled_services" ]]; then
+            echo "Restarting enabled game servers..."
+            while read -r service; do
+              if [[ -n "$service" ]]; then
+                echo "Starting: $service"
+                sudo systemctl start "$service" || echo "Warning: Failed to start $service"
+                sleep 2
+              fi
+            done <<< "$enabled_services"
+            
+            # Brief pause for services to initialize
+            sleep 10
+            
+            echo "Verifying service status..."
+            systemctl status 'game-server@*.service' --no-pager || true
+          else
+            echo "No game servers to restart"
+          fi
+        ENDSSH
+    
+    - name: Final Production Validation
+      run: |
+        echo "Running final production validation..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          cd /opt/gameserver-admin
+          
+          # Final health check
+          echo "Final health check..."
+          sudo -u gameserver ./scripts/deployment/health-check.sh --env production
+          
+          # Check that critical files exist and have correct permissions
+          echo "Checking file permissions..."
+          find scripts/ -name "*.sh" -not -perm /u+x | while read -r file; do
+            echo "Warning: Script not executable: $file"
+          done
+          
+          echo "✅ Production validation completed"
+        ENDSSH
+    
+    - name: Update Deployment Status
+      if: success()
+      run: |
+        echo "🎉 Production deployment completed successfully!"
+        echo "Deployment timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Commit SHA: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "Production environment is live"
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        # Clean up SSH key
+        rm -f ~/.ssh/id_rsa
+        
+        # Clean up deployment package
+        rm -f gameserver-admin-production.tar.gz
+
+  rollback-on-failure:
+    name: Automatic Rollback
+    runs-on: ubuntu-latest
+    needs: deploy-production
+    if: failure() && github.event.inputs.rollback_enabled != 'false'
+    
+    steps:
+    - name: Setup SSH Key
+      run: |
+        echo "Setting up SSH key for rollback..."
+        mkdir -p ~/.ssh
+        echo "${{ secrets.PRODUCTION_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+        chmod 600 ~/.ssh/id_rsa
+        ssh-keyscan -H "${{ vars.PRODUCTION_HOST }}" >> ~/.ssh/known_hosts
+    
+    - name: Execute Rollback
+      run: |
+        echo "🚨 Production deployment failed - initiating automatic rollback"
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          set -e
+          
+          echo "Starting automatic rollback..."
+          
+          # Find the most recent backup
+          latest_backup=$(sudo ls -dt /opt/gameserver-admin.backup.* | head -1 2>/dev/null || echo "")
+          
+          if [[ -n "$latest_backup" ]]; then
+            echo "Rolling back to: $latest_backup"
+            
+            # Stop services
+            sudo systemctl stop 'game-server@*.service' || true
+            
+            # Restore backup
+            sudo rm -rf /opt/gameserver-admin
+            sudo cp -r "$latest_backup" /opt/gameserver-admin
+            
+            # Restore systemd services
+            cd /opt/gameserver-admin
+            sudo -u gameserver ./systemd/generate-services.sh --env production
+            sudo systemctl daemon-reload
+            
+            echo "✅ Rollback completed successfully"
+          else
+            echo "❌ No backup found for rollback"
+            exit 1
+          fi
+        ENDSSH
+    
+    - name: Validate Rollback
+      run: |
+        echo "Validating rollback success..."
+        
+        ssh -i ~/.ssh/id_rsa "${{ vars.PRODUCTION_USER }}@${{ vars.PRODUCTION_HOST }}" << 'ENDSSH'
+          cd /opt/gameserver-admin
+          
+          if sudo -u gameserver ./scripts/deployment/health-check.sh --env production; then
+            echo "✅ Rollback validation successful"
+          else
+            echo "❌ Rollback validation failed"
+            exit 1
+          fi
+        ENDSSH
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        rm -f ~/.ssh/id_rsa
+
+  notify-production-status:
+    name: Notify Production Status
+    runs-on: ubuntu-latest
+    needs: [deploy-production, rollback-on-failure]
+    if: always()
+    
+    steps:
+    - name: Report Production Deployment Status
+      run: |
+        echo "=== Production Deployment Summary ==="
+        echo "Deployment: ${{ needs.deploy-production.result }}"
+        echo "Rollback: ${{ needs.rollback-on-failure.result }}"
+        echo "Timestamp: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+        echo "Commit: ${{ github.sha }}"
+        echo "Branch: ${{ github.ref_name }}"
+        echo "====================================="
+        
+        if [[ "${{ needs.deploy-production.result }}" == "success" ]]; then
+          echo "🎉 Production deployment completed successfully!"
+          echo "All game servers are running with the latest version."
+        elif [[ "${{ needs.rollback-on-failure.result }}" == "success" ]]; then
+          echo "⚠️  Production deployment failed but rollback succeeded"
+          echo "Production environment has been restored to previous working state."
+          echo "Please check deployment logs and fix issues before retrying."
+        else
+          echo "🚨 Production deployment failed"
+          if [[ "${{ github.event.inputs.rollback_enabled }}" == "false" ]]; then
+            echo "Automatic rollback was disabled."
+          else
+            echo "Automatic rollback also failed - manual intervention required!"
+          fi
+          echo "Please check the production environment immediately."
+          exit 1
+        fi

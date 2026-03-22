@@ -1,0 +1,51 @@
+[Unit]
+Description=Game Server - %i
+Documentation=file:///home/kelly/Repos/GameServerAdministration/docs/operations.md
+After=docker.service
+Requires=docker.service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=forking
+RemainAfterExit=yes
+ExecStartPre=/bin/bash -c '/home/kelly/Repos/GameServerAdministration/scripts/core/server-manager.sh validate --instance "%i"'
+ExecStart=/bin/bash -c '/home/kelly/Repos/GameServerAdministration/scripts/core/server-manager.sh start --instance "%i"'
+ExecReload=/bin/bash -c '/home/kelly/Repos/GameServerAdministration/scripts/core/server-manager.sh restart --instance "%i"'
+ExecStop=/bin/bash -c '/home/kelly/Repos/GameServerAdministration/scripts/core/server-manager.sh stop --instance "%i"'
+
+# Health checking
+ExecStartPost=/bin/sleep 10
+ExecStartPost=/bin/bash -c '/home/kelly/Repos/GameServerAdministration/scripts/deployment/health-check.sh --instance "%i" --timeout 300'
+
+# Security settings
+User=kelly
+Group=kelly
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=read-only
+ProtectSystem=strict
+ReadWritePaths=/home/kelly/Repos/GameServerAdministration
+ReadWritePaths=/var/lib/docker
+
+# Resource limits
+LimitNOFILE=8192
+TimeoutStartSec=600
+TimeoutStopSec=300
+RestartSec=30
+Restart=on-failure
+RestartPreventExitStatus=2
+
+# Environment
+Environment=PATH=/usr/local/bin:/usr/bin:/bin
+Environment=DOCKER_CLI_EXPERIMENTAL=enabled
+WorkingDirectory=/home/kelly/Repos/GameServerAdministration
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=game-server-%i
+
+[Install]
+WantedBy=multi-user.target
+Alias=game-server-%i.service

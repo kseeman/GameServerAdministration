@@ -1,0 +1,16 @@
+{
+  "metadata": {
+    "name": "Tournament PvE",
+    "description": "Tournament rules but in PvE mode - competitive PvE events",
+    "version": "1.0", 
+    "created": "2026-03-22T15:36:00Z",
+    "inherits": "tournament.json"
+  },
+  "game_settings": {
+    "bEnablePlayerToPlayerDamage": false,
+    "bIsPvP": false,
+    "bCanPickupOtherGuildDeathPenaltyDrop": false,
+    "bExistPlayerAfterLogout": false,
+    "GuildPlayerMaxNum": 20
+  }
+}

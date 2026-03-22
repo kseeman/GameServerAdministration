@@ -1,0 +1,57 @@
+{
+  "metadata": {
+    "environment": "production",
+    "description": "Infrastructure configuration for production environment",
+    "version": "1.0",
+    "created": "2026-03-22T15:36:00Z"
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauldamir's Server",
+    "server_description_suffix": "Official Server",
+    "admin_password": "admin_prod_secure_2024",
+    "base_password": "letsride"
+  },
+  "network_config": {
+    "base_port": 8215,
+    "port_offset_per_context": 10,
+    "query_port_offset": 18804,
+    "rcon_port_offset": 17362,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": false
+  },
+  "docker_config": {
+    "container_name_template": "{game}-{env}-{instance}",
+    "volume_name_template": "{game}-vol-{env}-{instance}",
+    "restart_policy": "always",
+    "memory_limit": "16g",
+    "cpu_limit": "6"
+  },
+  "backup_config": {
+    "backup_retention": 20,
+    "backup_schedule": "0 */4 * * *",
+    "backup_location": "./backups/{instance}/"
+  },
+  "instance_mappings": {
+    "tournament": {
+      "display_name": "Tournament",
+      "port": 8215,
+      "max_players": 32
+    },
+    "hardcore": {
+      "display_name": "Hardcore",
+      "port": 8225,
+      "max_players": 20
+    },
+    "casual": {
+      "display_name": "Casual",
+      "port": 8235,
+      "max_players": 32
+    },
+    "main": {
+      "display_name": "Main",
+      "port": 8245,
+      "max_players": 32
+    }
+  }
+}
