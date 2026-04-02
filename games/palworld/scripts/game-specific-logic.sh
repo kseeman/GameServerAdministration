@@ -112,9 +112,9 @@ palworld_generate_settings_ini() {
         [[ "$rcon_enabled" == "true" ]] && rcon_enabled="True" || rcon_enabled="False"
 
         options="${options},RCONEnabled=${rcon_enabled}"
-        options="${options},RCONPort=${ports[2]}"
+        options="${options},RCONPort=25575"
         options="${options},RESTAPIEnabled=True"
-        options="${options},RESTAPIPort=${ports[3]}"
+        options="${options},RESTAPIPort=8212"
     fi
 
     echo "[/Script/Pal.PalGameWorldSettings]"
