@@ -38,11 +38,8 @@ EXAMPLES:
   $0 --dry-run
 
 CRON EXAMPLES:
-  # Check and swap every hour
-  0 * * * * /path/to/scheduled-config-swap.sh --game palworld --instance tournament --env production --quiet
-
-  # Check twice per day (morning/evening)
-  0 6,18 * * * /path/to/scheduled-config-swap.sh --game palworld --instance tournament --env production --quiet
+  # Daily at 8 AM
+  0 8 * * * /path/to/scheduled-config-swap.sh --game palworld --instance tournament --env production --quiet
 
 SCHEDULE FORMAT (JSON):
 {

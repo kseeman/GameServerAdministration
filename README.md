@@ -203,7 +203,9 @@ Available presets:
 
 ### Scheduled Config Swap
 
-Automatically rotates presets on a day-of-week schedule (e.g., PvP on weekends, PvE on weekdays).
+Automatically rotates presets on a day-of-week schedule. Runs daily at 8 AM, only swaps when the target preset differs from the current one.
+
+Default tournament schedule: PvE (Mon/Tue/Fri) and PvP (Wed/Thu/Sat/Sun).
 
 ```bash
 # Check what preset should be active today

@@ -166,8 +166,8 @@ install_config_swap() {
     local script_path="$PROJECT_ROOT/scripts/automation/scheduled-config-swap.sh"
     local log_file="/var/log/gameserver-config-swap.log"
     
-    # Check every hour (you can adjust this)
-    local cron_schedule="0 * * * *"
+    # Run daily at 8 AM
+    local cron_schedule="0 8 * * *"
     local cron_entry="$cron_schedule $script_path --game $GAME --instance $INSTANCE --env $ENVIRONMENT --quiet >> $log_file 2>&1"
     local cron_comment="# Automated config swap for $GAME-$INSTANCE-$ENVIRONMENT - GameServerAdministration"
     
@@ -303,8 +303,7 @@ show_tournament_summary() {
     log_info "Features:"
     log_info "  - Automatic backup before each swap"
     log_info "  - Health check after each swap"
-    log_info "  - Only swaps between 6 AM and 10 PM"
-    log_info "  - Checks every hour for needed changes"
+    log_info "  - Swaps run daily at 8 AM"
     log_info ""
     log_info "Commands:"
     log_info "  - Manual check: ./scripts/automation/scheduled-config-swap.sh --game $GAME --instance $INSTANCE --env $ENVIRONMENT --check-only"

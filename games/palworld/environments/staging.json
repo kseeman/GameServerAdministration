@@ -48,7 +48,7 @@
   },
   "backup_config": {
     "backup_retention": 10,
-    "backup_schedule": "0 */6 * * *",
+    "backup_schedule": "0 * * * *",
     "backup_location": "./backups/staging/{instance}/"
   },
   "instances": {
