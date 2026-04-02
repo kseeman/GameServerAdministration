@@ -184,10 +184,22 @@ install_config_swap() {
     # Preserve existing cron jobs, but remove any existing config swap for same server
     crontab -l 2>/dev/null | grep -v "config-swap.*$GAME.*$INSTANCE.*$ENVIRONMENT" | grep -v "GameServerAdministration.*config" > "$temp_cron" || true
     
-    # Add new cron job
-    echo "" >> "$temp_cron"
-    echo "$cron_comment" >> "$temp_cron"
-    echo "$cron_entry" >> "$temp_cron"
+    # Add new cron job with header/footer
+    cat >> "$temp_cron" << EOF
+
+# =================================================
+# Game Server Config Swap
+# Managed by GameServerAdministration
+# Generated on: $(date)
+# =================================================
+
+$cron_comment
+$cron_entry
+
+# =================================================
+# End Game Server Config Swap
+# =================================================
+EOF
     
     # Install new crontab
     if crontab "$temp_cron"; then
@@ -196,7 +208,7 @@ install_config_swap() {
         # Create log file
         sudo touch "$log_file" 2>/dev/null || touch "$log_file" 2>/dev/null || true
         
-        log_info "Schedule: Check every hour for config changes"
+        log_info "Schedule: Daily at 8 AM"
         log_info "Log file: $log_file"
     else
         log_error "Failed to install config swap cron job"
@@ -213,7 +225,7 @@ remove_config_swap() {
     
     # Get current crontab without config swap entries
     local temp_cron=$(mktemp)
-    crontab -l 2>/dev/null | grep -v "scheduled-config-swap.sh\|GameServerAdministration.*config" > "$temp_cron" || true
+    crontab -l 2>/dev/null | grep -v "scheduled-config-swap.sh\|GameServerAdministration.*config\|Game Server Config Swap\|End Game Server Config Swap" > "$temp_cron" || true
     
     if [[ "$DRY_RUN" == true ]]; then
         log_info "[DRY-RUN] Would remove config swap cron jobs"
