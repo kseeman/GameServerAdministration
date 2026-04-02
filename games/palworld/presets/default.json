@@ -8,6 +8,7 @@
   },
   "game_settings": {
     "Difficulty": "Normal",
+    "ServerPlayerMaxNum": 32,
     "DayTimeSpeedRate": 1.0,
     "NightTimeSpeedRate": 1.0,
     "ExpRate": 1.0,
