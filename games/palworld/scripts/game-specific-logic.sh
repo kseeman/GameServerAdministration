@@ -79,7 +79,8 @@ palworld_generate_settings_ini() {
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         local base_name=$(jq -r '.server_infrastructure.base_server_name // "Palworld Server"' "$env_config")
         local instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
-        local server_name="${base_name} - ${instance_desc}"
+        local server_name="$base_name"
+        [[ -n "$instance_desc" ]] && server_name="${base_name} - ${instance_desc}"
         local admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config")
         local server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         local max_players=$(jq -r ".instances.\"$instance\".max_players // 32" "$env_config")

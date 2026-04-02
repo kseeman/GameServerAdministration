@@ -53,25 +53,25 @@
   },
   "instances": {
     "tournament": {
-      "description": "Competition settings for tournament events",
+      "description": "PVP Tournament",
       "default_preset": "tournament",
       "port_offset": 0,
       "max_players": 32
     },
     "hardcore": {
-      "description": "Maximum difficulty PvP server",
+      "description": "Hardcore",
       "default_preset": "hardcore",
       "port_offset": 1,
       "max_players": 20
     },
     "casual": {
-      "description": "Relaxed gameplay server",
+      "description": "PVE",
       "default_preset": "casual",
       "port_offset": 3,
       "max_players": 32
     },
     "main": {
-      "description": "Main general-purpose server",
+      "description": "",
       "default_preset": "default",
       "port_offset": 4,
       "max_players": 32
