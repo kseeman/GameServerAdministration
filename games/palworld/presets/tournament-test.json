@@ -1,0 +1,39 @@
+{
+  "metadata": {
+    "name": "Tournament Test",
+    "description": "Copy of tournament preset for testing setting tweaks",
+    "version": "1.0",
+    "created": "2026-03-22T15:36:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "Difficulty": "Hard",
+    "PlayerDamageRateDefense": 0.5,
+    "DeathPenalty": "All",
+    "bEnablePlayerToPlayerDamage": true,
+    "bIsPvP": true,
+    "bCanPickupOtherGuildDeathPenaltyDrop": true,
+    "bExistPlayerAfterLogout": true,
+    "bEnableAimAssistPad": true,
+    "GuildPlayerMaxNum": 4,
+    "PalEggDefaultHatchingTime": 10.0,
+    "bAutoResetGuildNoOnlinePlayers": false,
+    "AutoResetGuildTimeNoOnlinePlayers": 120.0,
+    "bAllowEnhanceStat_Health": false,
+    "bAllowEnhanceStat_Attack": false,
+    "bEnableFastTravelOnlyBaseCamp": true,
+    "BaseCampMaxNumInGuild": 3,
+    "MaxBuildingLimitNum": 1000,
+    "GuildRejoinCooldownMinutes": 60.0,
+    "BlockRespawnTime": 5.0,
+    "RespawnPenaltyDurationThreshold": 1800.0,
+    "RespawnPenaltyTimeScale": 2.0,
+    "bAdditionalDropItemWhenPlayerKillingInPvPMode": true,
+    "AdditionalDropItemWhenPlayerKillingInPvPMode": "Got 'em!",
+    "AdditionalDropItemNumWhenPlayerKillingInPvPMode": 1,
+    "bDisplayPvPItemNumOnWorldMap_BaseCamp": false,
+    "bDisplayPvPItemNumOnWorldMap_Player": false,
+    "bInvisibleOtherGuildBaseCampAreaFX": true,
+    "DenyTechnologyList": "SkillUnlock_JetDragon,SkillUnlock_IceHorse,SkillUnlock_IceHorse_Dark,SkillUnlock_SaintCentaur,SkillUnlock_BlackCentaur,SkillUnlock_DarkMechaDragon,SkillUnlock_PoseidonOrca,GrapplingGun,GrapplingGun2,GrapplingGun3,GrapplingGun4,GrapplingGun5,GuildChest,Homeward"
+  }
+}

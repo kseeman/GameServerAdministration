@@ -21,6 +21,7 @@ services:
       - SERVER_NAME=${SERVER_NAME}
       - SERVER_PASSWORD=${SERVER_PASSWORD}
       - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - COMMUNITY=true
       - MULTITHREADING=true
       - UPDATE_ON_BOOT=true
       - RCON_ENABLED=true
