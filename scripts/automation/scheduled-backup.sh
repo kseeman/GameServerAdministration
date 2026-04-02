@@ -129,8 +129,8 @@ log_backup() {
 # Discover running instances
 discover_instances() {
     local running_instances=()
-    
-    log_backup "INFO" "Discovering running game server instances..."
+
+    log_backup "INFO" "Discovering running game server instances..." >&2
     
     # Get all running containers that match our naming pattern: {game}-{env}-{instance}
     local containers=$(docker ps --format "{{.Names}}" || true)
@@ -158,7 +158,7 @@ discover_instances() {
             running_instances+=("$game:$env:$instance")
             
             if [[ "$VERBOSE" == true ]]; then
-                log_backup "INFO" "Found instance: $game-$env-$instance"
+                log_backup "INFO" "Found instance: $game-$env-$instance" >&2
             fi
         fi
     done <<< "$containers"
