@@ -31,7 +31,9 @@ Config swapping changes a running server's game settings (e.g., switching from c
 
 **Preset inheritance**: Presets can inherit from a parent via `metadata.inherits`. `palworld_resolve_preset()` merges parent `game_settings` with child overrides using jq. For example, `casual.json` inherits from `default.json` and only overrides the settings it changes.
 
-**Preset key names**: Keys in `game_settings` must match the exact PalWorldSettings.ini key names (e.g., `bIsPvP`, `DeathPenalty`, `DenyTechnologyList`). These are NOT the thijsvanloef image's UPPER_SNAKE_CASE env var names — we bypass the image's settings generation entirely.
+**Preset key names**: Keys in `game_settings` must match the exact PalWorldSettings.ini key names (e.g., `bIsPvP`, `DeathPenalty`, `DenyTechnologyList`). These are NOT the thijsvanloef image's UPPER_SNAKE_CASE env var names — we bypass the image's settings generation entirely. Boolean values in JSON (`true`/`false`) are automatically capitalized to `True`/`False` for the ini — Palworld requires this casing.
+
+**Server infrastructure in the ini**: `palworld_generate_settings_ini()` appends server infrastructure settings (ServerName, AdminPassword, ServerPassword, ServerPlayerMaxNum, PublicPort, RCONPort, RESTAPIPort, etc.) from the environment config. Port values in the ini must be the **internal** container ports (8212, 25575), not the external mapped ports — Docker handles the translation.
 
 **State tracking**: After a successful start or config-swap, the active preset name is written to `.state/palworld-<env>-<instance>.preset`. This is read by `scheduled-config-swap.sh` to detect the current preset and by `palworld_backup_data()` to tag backup metadata.
 

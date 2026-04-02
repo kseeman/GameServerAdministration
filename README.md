@@ -190,7 +190,9 @@ Presets are JSON files in `games/<game>/presets/` that define game settings. The
 }
 ```
 
-Keys in `game_settings` must use the exact PalWorldSettings.ini key names (e.g., `bIsPvP`, `DeathPenalty`, `DenyTechnologyList`). These are the game's native setting names, not the thijsvanloef Docker image's UPPER_SNAKE_CASE env var names.
+Keys in `game_settings` must use the exact PalWorldSettings.ini key names (e.g., `bIsPvP`, `DeathPenalty`, `DenyTechnologyList`). These are the game's native setting names, not the thijsvanloef Docker image's UPPER_SNAKE_CASE env var names. Use JSON booleans (`true`/`false`) — the system automatically capitalizes them to `True`/`False` for the ini.
+
+Server infrastructure settings (ServerName, passwords, ports, max players) are not set in presets — they come from the environment config (`games/<game>/environments/<env>.json`).
 
 Available presets:
 | Preset | Description |
