@@ -132,14 +132,15 @@ discover_instances() {
     
     log_backup "INFO" "Discovering running game server instances..."
     
-    # Get all running containers that match our naming pattern
-    local containers=$(docker ps --format "{{.Names}}" | grep -E "^[a-z]+-[a-z]+-[a-z]+$" || true)
-    
+    # Get all running containers that match our naming pattern: {game}-{env}-{instance}
+    local containers=$(docker ps --format "{{.Names}}" || true)
+
     while IFS= read -r container_name; do
         [[ -z "$container_name" ]] && continue
-        
+
         # Parse container name: {game}-{env}-{instance}
-        if [[ "$container_name" =~ ^([a-z]+)-([a-z]+)-([a-z0-9-]+)$ ]]; then
+        # env must be "staging" or "production"
+        if [[ "$container_name" =~ ^([a-zA-Z0-9]+)-(staging|production)-([a-zA-Z0-9-]+)$ ]]; then
             local game="${BASH_REMATCH[1]}"
             local env="${BASH_REMATCH[2]}"
             local instance="${BASH_REMATCH[3]}"
@@ -168,23 +169,16 @@ discover_instances() {
 # Get active preset for an instance
 get_active_preset() {
     local game="$1"
-    local env="$2" 
+    local env="$2"
     local instance="$3"
-    
-    # Try to determine active preset from running container env vars or config
-    local container_name="${game}-${env}-${instance}"
-    
-    # For now, we'll use a heuristic based on instance name
-    # In future, could store active preset in container labels or config files
-    case "$instance" in
-        *tournament*) echo "tournament" ;;
-        *hardcore*) echo "hardcore" ;;
-        *casual*) echo "casual" ;;
-        *test*) echo "default" ;;
-        main) echo "default" ;;
-        backup) echo "casual" ;;
-        *) echo "unknown" ;;
-    esac
+
+    local state_file="${PROJECT_ROOT}/.state/${game}-${env}-${instance}.preset"
+
+    if [[ -f "$state_file" ]]; then
+        cat "$state_file"
+    else
+        echo "unknown"
+    fi
 }
 
 # Check if instance should be backed up
