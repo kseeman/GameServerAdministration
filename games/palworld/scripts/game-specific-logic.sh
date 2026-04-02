@@ -66,9 +66,19 @@ palworld_generate_settings_ini() {
     # Add game settings from preset
     while IFS='=' read -r key value; do
         [[ -z "$key" ]] && continue
+        # Capitalize booleans: Palworld expects True/False not true/false
+        if [[ "$value" == "true" ]]; then
+            value="True"
+        elif [[ "$value" == "false" ]]; then
+            value="False"
+        fi
         # Quote string values that contain spaces, commas, or are URLs
         if [[ "$value" =~ [[:space:],] || "$value" =~ ^https?:// ]]; then
             value="\"${value}\""
+        fi
+        # Quote empty string values
+        if [[ -z "$value" ]]; then
+            value="\"\""
         fi
         [[ -n "$options" ]] && options="${options},"
         options="${options}${key}=${value}"
@@ -83,15 +93,28 @@ palworld_generate_settings_ini() {
         [[ -n "$instance_desc" ]] && server_name="${base_name} - ${instance_desc}"
         local admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config")
         local server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
+        local server_description=$(jq -r '.server_infrastructure.server_description_suffix // ""' "$env_config")
         local max_players=$(jq -r ".instances.\"$instance\".max_players // 32" "$env_config")
         local rcon_enabled=$(jq -r '.network_config.rcon_enabled // false' "$env_config")
+        local public_ip=$(jq -r '.network_config.public_ip // ""' "$env_config")
 
+        # Get port assignments for this instance
+        local ports=($(get_port_assignments "palworld" "$instance" "$env"))
+
+        options="${options},ServerPlayerMaxNum=${max_players}"
         options="${options},ServerName=\"${server_name}\""
+        options="${options},ServerDescription=\"${server_description}\""
         options="${options},AdminPassword=\"${admin_password}\""
         options="${options},ServerPassword=\"${server_password}\""
-        options="${options},ServerPlayerMaxNum=${max_players}"
+        options="${options},PublicPort=${ports[0]}"
+        options="${options},PublicIP=\"${public_ip}\""
+        # Capitalize boolean from JSON
+        [[ "$rcon_enabled" == "true" ]] && rcon_enabled="True" || rcon_enabled="False"
+
         options="${options},RCONEnabled=${rcon_enabled}"
-        options="${options},RESTAPIEnabled=true"
+        options="${options},RCONPort=${ports[2]}"
+        options="${options},RESTAPIEnabled=True"
+        options="${options},RESTAPIPort=${ports[3]}"
     fi
 
     echo "[/Script/Pal.PalGameWorldSettings]"
