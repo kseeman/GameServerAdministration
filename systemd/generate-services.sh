@@ -78,9 +78,13 @@ parse_arguments() {
 validate_environment() {
     log_info "Validating environment: $ENVIRONMENT"
     
-    # Check if environment exists
-    if [[ ! -d "$PROJECT_ROOT/environments/$ENVIRONMENT" ]]; then
-        log_error "Environment not found: $ENVIRONMENT"
+    # Check if any game has a config for this environment
+    local found=false
+    for config in "$PROJECT_ROOT"/games/*/environments/${ENVIRONMENT}.json; do
+        [[ -f "$config" ]] && found=true && break
+    done
+    if [[ "$found" != true ]]; then
+        log_error "No game configs found for environment: $ENVIRONMENT"
         exit 1
     fi
 
@@ -88,53 +92,47 @@ validate_environment() {
 }
 
 generate_service_files() {
-    local env_dir="$PROJECT_ROOT/environments/$ENVIRONMENT"
     local output_dir="$PROJECT_ROOT/systemd/$ENVIRONMENT"
     local template_file="$PROJECT_ROOT/systemd/templates/game-server@.service.template"
-    
+
     log_info "Generating systemd service files for environment: $ENVIRONMENT"
-    
+
     # Create output directory
     if [[ "$DRY_RUN" == "false" ]]; then
         mkdir -p "$output_dir"
     else
         log_info "[DRY RUN] Would create directory: $output_dir"
     fi
-    
-    # Check if global registry exists
-    local global_registry="$env_dir/global-registry.json"
-    if [[ ! -f "$global_registry" ]]; then
-        log_error "Global registry not found: $global_registry"
-        exit 1
-    fi
-    
-    # Read supported games from global registry
-    local supported_games
-    supported_games=$(jq -r '.supported_games[]' "$global_registry" 2>/dev/null || echo "")
-    
+
+    # Discover supported games from games/ directory
+    local supported_games=""
+    for game_dir in "$PROJECT_ROOT"/games/*/; do
+        local game=$(basename "$game_dir")
+        local config="$game_dir/environments/${ENVIRONMENT}.json"
+        if [[ -f "$config" ]]; then
+            supported_games+="$game"$'\n'
+        fi
+    done
+
     if [[ -z "$supported_games" ]]; then
-        log_error "No supported games found in global registry"
+        log_error "No supported games found for environment: $ENVIRONMENT"
         exit 1
     fi
-    
+
     # Generate service files for each game
     while IFS= read -r game; do
         if [[ -z "$game" ]]; then
             continue
         fi
-        
+
         log_info "Processing game: $game"
-        
-        # Check if game has registry
-        local game_registry="$env_dir/games/$game/registry.json"
-        if [[ ! -f "$game_registry" ]]; then
-            log_warn "Game registry not found for $game, skipping: $game_registry"
-            continue
-        fi
-        
-        # Read supported contexts for this game
+
+        # Read game environment config
+        local config="$PROJECT_ROOT/games/$game/environments/${ENVIRONMENT}.json"
+
+        # Read supported instances for this game
         local supported_contexts
-        supported_contexts=$(jq -r '.supported_contexts[]' "$game_registry" 2>/dev/null || echo "")
+        supported_contexts=$(jq -r '.instances | keys[]' "$config" 2>/dev/null || echo "")
         
         if [[ -z "$supported_contexts" ]]; then
             log_warn "No supported contexts found for game: $game"

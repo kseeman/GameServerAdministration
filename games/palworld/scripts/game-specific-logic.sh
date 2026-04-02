@@ -9,7 +9,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
 source "${REPO_ROOT}/scripts/shared/server-utils.sh"
 
 # Palworld-specific paths and configuration
-PALWORLD_DOCKER_DIR="${REPO_ROOT}/docker/palworld"
+PALWORLD_DOCKER_DIR="${REPO_ROOT}/games/palworld/docker"
 
 # Required plugin functions for palworld
 
@@ -259,8 +259,8 @@ palworld_config_swap() {
     log_info "Swapping Palworld config: $context -> $new_preset (env: $env)"
     
     local container_name=$(get_container_name "palworld" "$context" "$env")
-    local current_preset_file="${REPO_ROOT}/environments/${env}/games/palworld/presets/${context}.env"
-    local new_preset_file="${REPO_ROOT}/environments/${env}/games/palworld/presets/${new_preset}.env"
+    local current_preset_file="${REPO_ROOT}/games/palworld/presets/${context}.json"
+    local new_preset_file="${REPO_ROOT}/games/palworld/presets/${new_preset}.json"
     
     # Validate new preset exists
     if [[ ! -f "$new_preset_file" ]]; then
@@ -396,14 +396,14 @@ palworld_backup_data() {
     # Get port assignments for metadata
     local ports=($(get_port_assignments "palworld" "$instance" "$env"))
     
-    # Get infrastructure info
-    local infra_file="${REPO_ROOT}/environments/${env}/infrastructure.json"
+    # Get infrastructure info from game environment config
+    local config=$(get_game_env_config "palworld" "$env")
     local server_name="Unknown"
     local max_players=32
-    
-    if [[ -f "$infra_file" ]] && command -v jq >/dev/null 2>&1; then
-        server_name=$(jq -r ".instance_mappings.\"$instance\".display_name // \"Unknown\"" "$infra_file")
-        max_players=$(jq -r ".instance_mappings.\"$instance\".max_players // 32" "$infra_file")
+
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        server_name=$(jq -r ".instances.\"$instance\".description // \"Unknown\"" "$config")
+        max_players=$(jq -r ".instances.\"$instance\".max_players // 32" "$config")
     fi
     
     # Create metadata file

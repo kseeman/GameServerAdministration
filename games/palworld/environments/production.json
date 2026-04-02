@@ -1,0 +1,80 @@
+{
+  "metadata": {
+    "environment": "production",
+    "description": "Production environment configuration for Palworld servers",
+    "version": "1.0",
+    "created": "2026-03-22T15:36:00Z"
+  },
+  "game": {
+    "name": "Palworld",
+    "docker_image": "thijsvanloef/palworld-server-docker:latest",
+    "data_volume_path": "/palworld",
+    "config_files": ["PalWorldSettings.ini"],
+    "backup_includes": ["SaveGames", "Config"],
+    "health_check": {
+      "type": "rest_api",
+      "endpoint": "/v1/api/info",
+      "port": "restapi_port",
+      "auth_required": true
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauldamir's Server",
+    "server_description_suffix": "Official Server",
+    "admin_password": "admin_prod_secure_2024",
+    "base_password": "letsride"
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 8215,
+      "query_port": 27019,
+      "rcon_port": 25577,
+      "restapi_port": 9999
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": false
+  },
+  "docker_config": {
+    "restart_policy": "always",
+    "memory_limit": "16g",
+    "cpu_limit": "6"
+  },
+  "naming_conventions": {
+    "volume_pattern": "palworld-vol-production-{instance}",
+    "container_pattern": "palworld-production-{instance}",
+    "backup_pattern": "{preset}_{instance}_production_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 20,
+    "backup_schedule": "0 */4 * * *",
+    "backup_location": "./backups/production/{instance}/"
+  },
+  "instances": {
+    "tournament": {
+      "description": "Competition settings for tournament events",
+      "default_preset": "tournament",
+      "port_offset": 0,
+      "max_players": 32
+    },
+    "hardcore": {
+      "description": "Maximum difficulty PvP server",
+      "default_preset": "hardcore",
+      "port_offset": 1,
+      "max_players": 20
+    },
+    "casual": {
+      "description": "Relaxed gameplay server",
+      "default_preset": "casual",
+      "port_offset": 3,
+      "max_players": 32
+    },
+    "main": {
+      "description": "Main general-purpose server",
+      "default_preset": "default",
+      "port_offset": 4,
+      "max_players": 32
+    }
+  }
+}

@@ -5,7 +5,7 @@ on:
     branches: [ main ]
     paths:
       - 'scripts/**'
-      - 'environments/production/**'
+      - 'games/**/environments/production.json'
       - 'games/**'
       - 'systemd/**'
   
@@ -63,22 +63,20 @@ jobs:
       run: |
         echo "Performing pre-deployment production validation..."
         
-        # Check production registry exists and is valid
-        if [[ -f "environments/production/registry.json" ]]; then
-          jq empty "environments/production/registry.json" || exit 1
-          echo "✅ Production registry is valid"
-        else
-          echo "❌ Production registry not found"
-          exit 1
-        fi
-        
-        # Check infrastructure config exists
-        if [[ -f "environments/production/infrastructure.json" ]]; then
-          jq empty "environments/production/infrastructure.json" || exit 1
-          echo "✅ Production infrastructure config is valid"
-        else
-          echo "❌ Production infrastructure config not found"
-          exit 1
+        # Check game environment configs exist and are valid JSON
+        found_config=false
+        find games/ -path "*/environments/production.json" -type f | while read -r config; do
+          jq empty "$config" || exit 1
+          echo "Valid: $config"
+          found_config=true
+        done
+
+        if [[ "$found_config" == false ]]; then
+          # Check at least one production config exists
+          if ! find games/ -path "*/environments/production.json" -type f | grep -q .; then
+            echo "No production game configs found"
+            exit 1
+          fi
         fi
         
         # Validate critical systemd templates exist
@@ -97,7 +95,7 @@ jobs:
         security_issues=false
         
         # Scan for potential secrets in production configs
-        if grep -r -i "password\|secret\|token" environments/production/; then
+        if grep -r -i "password\|secret\|token" games/; then
           echo "❌ Potential secrets found in production configuration"
           security_issues=true
         fi
@@ -192,10 +190,8 @@ jobs:
         # Create deployment archive with production-only content
         tar -czf gameserver-admin-production.tar.gz \
           scripts/ \
-          environments/production/ \
           games/ \
           systemd/ \
-          --exclude='environments/staging' \
           --exclude='.git' \
           --exclude='*.backup.*'
         

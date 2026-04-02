@@ -86,14 +86,17 @@ get_backup_schedule() {
     local env="$1"
     local default_schedule="0 */6 * * *"  # Every 6 hours default
     
-    local infra_file="$PROJECT_ROOT/environments/${env}/infrastructure.json"
-    
-    if [[ -f "$infra_file" ]] && command -v jq >/dev/null 2>&1; then
-        local schedule=$(jq -r '.backup_config.backup_schedule // "0 */6 * * *"' "$infra_file")
-        echo "$schedule"
-    else
-        echo "$default_schedule"
-    fi
+    # Try to get schedule from first available game config for this env
+    local schedule="$default_schedule"
+    for game_dir in "$PROJECT_ROOT"/games/*/; do
+        local game=$(basename "$game_dir")
+        local config=$(get_game_env_config "$game" "$env")
+        if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+            schedule=$(jq -r '.backup_config.backup_schedule // "0 */6 * * *"' "$config")
+            break
+        fi
+    done
+    echo "$schedule"
 }
 
 # Generate cron job entry
@@ -115,11 +118,17 @@ install_cron_jobs() {
     
     # Check if environments exist
     local environments=()
-    for env_dir in "$PROJECT_ROOT/environments"/*; do
-        if [[ -d "$env_dir" ]]; then
-            local env_name=$(basename "$env_dir")
+    # Discover environments from game configs
+    for env_file in "$PROJECT_ROOT"/games/*/environments/*.json; do
+        if [[ -f "$env_file" ]]; then
+            local env_name=$(basename "$env_file" .json)
             if [[ "$env_name" == "staging" || "$env_name" == "production" ]]; then
-                environments+=("$env_name")
+                # Only add if not already in list
+                local already_added=false
+                for existing in "${environments[@]+"${environments[@]}"}"; do
+                    [[ "$existing" == "$env_name" ]] && already_added=true
+                done
+                [[ "$already_added" == false ]] && environments+=("$env_name")
             fi
         fi
     done
@@ -255,7 +264,12 @@ validate_setup() {
     # Check if environments exist
     local valid_envs=0
     for env in staging production; do
-        if [[ -d "$PROJECT_ROOT/environments/$env" ]]; then
+        # Check if any game has a config for this environment
+        local found=false
+        for config in "$PROJECT_ROOT"/games/*/environments/${env}.json; do
+            [[ -f "$config" ]] && found=true && break
+        done
+        if [[ "$found" == true ]]; then
             ((valid_envs++))
             log_success "Environment found: $env"
         else
@@ -287,10 +301,8 @@ show_summary() {
     
     log_info "=== Backup Schedule Summary ==="
     for env in "${environments[@]}"; do
-        if [[ -d "$PROJECT_ROOT/environments/$env" ]]; then
-            local schedule=$(get_backup_schedule "$env")
-            log_info "$env environment: $schedule"
-        fi
+        local schedule=$(get_backup_schedule "$env")
+        log_info "$env environment: $schedule"
     done
     
     log_info ""

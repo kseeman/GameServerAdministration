@@ -275,12 +275,12 @@ cleanup_old_backups() {
     local backup_dir="$PROJECT_ROOT/backups/${env}/${instance}"
     [[ ! -d "$backup_dir" ]] && return 0
     
-    # Get retention policy from infrastructure config
-    local infra_file="$PROJECT_ROOT/environments/${env}/infrastructure.json"
+    # Get retention policy from game environment config
+    local config=$(get_game_env_config "$game" "$env")
     local retention=10  # Default
-    
-    if [[ -f "$infra_file" ]] && command -v jq >/dev/null 2>&1; then
-        retention=$(jq -r '.backup_config.backup_retention // 10' "$infra_file")
+
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        retention=$(jq -r '.backup_config.backup_retention // 10' "$config")
     fi
     
     # Keep only recent backups, remove oldest

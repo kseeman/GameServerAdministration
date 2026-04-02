@@ -102,14 +102,15 @@ parse_arguments() {
 validate_deployment_environment() {
     log_info "Validating deployment environment..."
     
-    # Check if environment exists
-    if [[ ! -d "$PROJECT_ROOT/environments/$ENVIRONMENT" ]]; then
-        log_error "Environment not found: $ENVIRONMENT"
+    # Check if game environment config exists
+    local config=$(get_game_env_config "$GAME" "$ENVIRONMENT")
+    if [[ ! -f "$config" ]]; then
+        log_error "Game environment config not found: $config"
         exit 1
     fi
 
     # Check if preset file exists
-    local preset_path="$PROJECT_ROOT/environments/$ENVIRONMENT/presets/$GAME/$PRESET_FILE"
+    local preset_path="$PROJECT_ROOT/games/$GAME/presets/$PRESET_FILE"
     if [[ ! -f "$preset_path" ]]; then
         log_error "Preset file not found: $preset_path"
         exit 1
@@ -158,7 +159,7 @@ backup_current_deployment() {
 
 deploy_server() {
     local server_name="${GAME}-${ENVIRONMENT}-${CONTEXT}"
-    local preset_path="$PROJECT_ROOT/environments/$ENVIRONMENT/presets/$GAME/$PRESET_FILE"
+    local preset_path="$PROJECT_ROOT/games/$GAME/presets/$PRESET_FILE"
     
     log_info "Deploying server: $server_name"
     log_info "Using preset: $PRESET_FILE"

@@ -50,10 +50,13 @@ usage() {
     echo "  $0 list-backups --game palworld --instance main --env production"
     echo
     echo "SUPPORTED GAMES:"
-    if [[ -f "${REPO_ROOT}/environments/production/global-registry.json" ]] && command -v jq >/dev/null 2>&1; then
-        jq -r '.supported_games | keys | join(", ")' "${REPO_ROOT}/environments/production/global-registry.json" | sed 's/^/  /'
+    if command -v jq >/dev/null 2>&1; then
+        for game_dir in "${REPO_ROOT}"/games/*/; do
+            local game=$(basename "$game_dir")
+            echo "  $game"
+        done
     else
-        echo "  (Check environments/*/global-registry.json for supported games)"
+        echo "  (Check games/ directory for supported games)"
     fi
 }
 

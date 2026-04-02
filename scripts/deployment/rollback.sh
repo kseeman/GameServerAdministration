@@ -105,9 +105,10 @@ parse_arguments() {
 validate_rollback_environment() {
     log_info "Validating rollback environment..."
     
-    # Check if environment exists
-    if [[ ! -d "$PROJECT_ROOT/environments/$ENVIRONMENT" ]]; then
-        log_error "Environment not found: $ENVIRONMENT"
+    # Check if game environment config exists
+    local config=$(get_game_env_config "$GAME" "$ENVIRONMENT")
+    if [[ ! -f "$config" ]]; then
+        log_error "Game environment config not found: $config"
         exit 1
     fi
 
