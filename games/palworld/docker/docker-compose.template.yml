@@ -4,14 +4,13 @@ services:
     container_name: ${CONTAINER_NAME}
     ports:
       - "${GAME_PORT}:8211/udp"      # Game port
-      - "${QUERY_PORT}:27015/udp"    # Query port  
+      - "${QUERY_PORT}:27015/udp"    # Query port
       - "${RCON_PORT}:25575/tcp"     # RCON port
       - "${RESTAPI_PORT}:8212/tcp"   # REST API port
     volumes:
       - palworld_saved_data:/palworld
-    restart: unless-stopped
+    restart: ${RESTART_POLICY}
     environment:
-      - DEBIAN_FRONTEND=noninteractive
       - PUID=1000
       - PGID=1000
       - PORT=8211
@@ -19,20 +18,18 @@ services:
       - RCON_PORT=25575
       - REST_API_PORT=8212
       - PUBLIC_PORT=${GAME_PORT}
-      - SERVER_NAME=Palworld-${INSTANCE}
+      - SERVER_NAME=${SERVER_NAME}
+      - SERVER_PASSWORD=${SERVER_PASSWORD}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - MULTITHREADING=true
-      - COMMUNITY=false
-      - SERVER_PASSWORD=
-      - ADMIN_PASSWORD=adminpass123
       - UPDATE_ON_BOOT=true
       - RCON_ENABLED=true
       - REST_API_ENABLED=true
+      - DISABLE_GENERATE_SETTINGS=true
     deploy:
       resources:
         limits:
-          memory: 4G
-        reservations:
-          memory: 2G
+          memory: ${MEMORY_LIMIT}
 
 volumes:
   palworld_saved_data:

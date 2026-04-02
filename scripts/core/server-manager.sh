@@ -27,6 +27,7 @@ usage() {
     echo "  list          List running servers"
     echo "  backup        Create backup of server data"
     echo "  restore       Restore server from backup"
+    echo "  config-swap   Swap server configuration preset (stop, reconfigure, start)"
     echo "  list-backups  List available backups"
     echo "  validate      Validate game plugin"
     echo
@@ -44,7 +45,7 @@ usage() {
     echo "EXAMPLES:"
     echo "  $0 start --game palworld --instance main --env production --preset tournament"
     echo "  $0 stop --game palworld --instance main --env production"
-    echo "  $0 restart --game palworld --instance main --env production --preset casual"
+    echo "  $0 config-swap --game palworld --instance main --env production --preset casual"
     echo "  $0 backup --game palworld --instance main --env production"
     echo "  $0 restore --game palworld --instance test --env staging --backup tournament_main_20240322.tar.gz"
     echo "  $0 list-backups --game palworld --instance main --env production"
@@ -129,6 +130,16 @@ parse_arguments() {
                 exit 1
             fi
             ;;
+        config-swap)
+            if [[ -z "$GAME" || -z "$INSTANCE" || -z "$ENVIRONMENT" ]]; then
+                log_error "Operation '$OPERATION' requires --game, --instance, and --env"
+                exit 1
+            fi
+            if [[ -z "$PRESET" ]]; then
+                log_error "Config-swap operation requires --preset <name>"
+                exit 1
+            fi
+            ;;
         restore|list-backups)
             if [[ -z "$GAME" || -z "$INSTANCE" || -z "$ENVIRONMENT" ]]; then
                 log_error "Operation '$OPERATION' requires --game, --instance, and --env"
@@ -176,16 +187,6 @@ start_server() {
         fi
         if ! safety_confirmation "start server" "$GAME" "$INSTANCE" "$ENVIRONMENT" "$additional_info"; then
             return 1
-        fi
-    fi
-    
-    # Create emergency backup if volume exists
-    local volume_name=$(get_volume_name "$GAME" "$INSTANCE" "$ENVIRONMENT")
-    if volume_exists "$volume_name"; then
-        if [[ "$DRY_RUN" != true ]]; then
-            create_emergency_backup "start" "$GAME" "$INSTANCE" "$ENVIRONMENT"
-        else
-            log_info "[DRY-RUN] Would create emergency backup"
         fi
     fi
     
@@ -237,13 +238,20 @@ stop_server() {
 
 # Restart server operation
 restart_server() {
+    # If a preset is specified, delegate to config-swap (restart won't apply new env vars)
+    if [[ -n "$PRESET" ]]; then
+        log_info "Preset specified with restart, performing config swap instead"
+        config_swap_server
+        return $?
+    fi
+
     log_info "Restarting server: $GAME-$INSTANCE-$ENVIRONMENT"
-    
+
     # Load game plugin
     if ! load_game_plugin "$GAME" "$ENVIRONMENT"; then
         return 1
     fi
-    
+
     # Check if restart function exists, otherwise use stop + start
     if plugin_function_exists "$GAME" "restart_server"; then
         if [[ "$DRY_RUN" == true ]]; then
@@ -259,6 +267,31 @@ restart_server() {
             return 1
         fi
     fi
+}
+
+# Config swap operation - stop, reconfigure with new preset, start
+config_swap_server() {
+    log_info "Config swap: $GAME-$INSTANCE-$ENVIRONMENT -> preset: $PRESET"
+
+    # Safety confirmation (unless forced)
+    if [[ "$FORCE" != true ]]; then
+        if ! safety_confirmation "config swap" "$GAME" "$INSTANCE" "$ENVIRONMENT" "New preset: $PRESET"; then
+            return 1
+        fi
+    fi
+
+    # Load game plugin
+    if ! load_game_plugin "$GAME" "$ENVIRONMENT"; then
+        return 1
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY-RUN] Would call: ${GAME}_config_swap $INSTANCE $ENVIRONMENT $PRESET"
+        return 0
+    fi
+
+    # Call the game-specific config swap function
+    call_plugin_function "$GAME" "config_swap" "$INSTANCE" "$ENVIRONMENT" "$PRESET"
 }
 
 # Health check operation
@@ -405,6 +438,31 @@ backup_server() {
     call_plugin_function "$GAME" "backup_data" "$INSTANCE" "$ENVIRONMENT"
 }
 
+# Restore server from backup
+restore_server() {
+    log_info "Restoring server: $GAME-$INSTANCE-$ENVIRONMENT from backup: $BACKUP_FILE"
+
+    # Safety confirmation (unless forced)
+    if [[ "$FORCE" != true ]]; then
+        if ! safety_confirmation "restore server from backup" "$GAME" "$INSTANCE" "$ENVIRONMENT" "Backup file: $BACKUP_FILE"; then
+            return 1
+        fi
+    fi
+
+    # Load game plugin
+    if ! load_game_plugin "$GAME" "$ENVIRONMENT"; then
+        return 1
+    fi
+
+    if [[ "$DRY_RUN" == true ]]; then
+        log_info "[DRY-RUN] Would call: ${GAME}_restore_data $INSTANCE $ENVIRONMENT $BACKUP_FILE"
+        return 0
+    fi
+
+    # Call the game-specific restore function
+    call_plugin_function "$GAME" "restore_data" "$INSTANCE" "$ENVIRONMENT" "$BACKUP_FILE"
+}
+
 # List backups operation
 list_backups() {
     log_info "Listing backups: $GAME-$INSTANCE-$ENVIRONMENT"
@@ -498,8 +556,14 @@ main() {
         list)
             list_servers
             ;;
+        config-swap)
+            config_swap_server
+            ;;
         backup)
             backup_server
+            ;;
+        restore)
+            restore_server
             ;;
         list-backups)
             list_backups

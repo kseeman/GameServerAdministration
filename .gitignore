@@ -3,3 +3,4 @@ palworld-docker/
 # Runtime artifacts
 backups/
 docker-compose-*.yml
+.state/

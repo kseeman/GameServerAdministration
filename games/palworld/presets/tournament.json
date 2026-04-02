@@ -18,11 +18,9 @@
     "GuildPlayerMaxNum": 4,
     "PalEggDefaultHatchingTime": 10.0,
     "bAutoResetGuildNoOnlinePlayers": true,
-    "AutoResetGuildTimeNoOnlinePlayers": 120.0
-  },
-  "tournament_specific": {
-    "bEnableEnhanceStatHealth": false,
-    "bEnableEnhanceStatAttack": false,
+    "AutoResetGuildTimeNoOnlinePlayers": 120.0,
+    "bAllowEnhanceStat_Health": false,
+    "bAllowEnhanceStat_Attack": false,
     "bEnableFastTravelOnlyBaseCamp": true,
     "BaseCampMaxNumInGuild": 3,
     "MaxBuildingLimitNum": 1000,
@@ -31,26 +29,11 @@
     "RespawnPenaltyDurationThreshold": 1800.0,
     "RespawnPenaltyTimeScale": 2.0,
     "bAdditionalDropItemWhenPlayerKillingInPvPMode": true,
-    "AdditionalDropItemWhenPlayerKillingInPvPModeType": "PlayerDropItem",
+    "AdditionalDropItemWhenPlayerKillingInPvPMode": "PlayerDropItem",
     "AdditionalDropItemNumWhenPlayerKillingInPvPMode": 1,
-    "bDisplayPvPItemNumOnWorldMapBaseCamp": false,
-    "bDisplayPvPItemNumOnWorldMapPlayer": false,
-    "bInvisibleOtherGuildBaseCampAreaFX": true
-  },
-  "banned_technologies": [
-    "SkillUnlock_JetDragon",
-    "SkillUnlock_IceHorse", 
-    "SkillUnlock_IceHorse_Dark",
-    "SkillUnlock_SaintCentaur",
-    "SkillUnlock_BlackCentaur",
-    "SkillUnlock_DarkMechaDragon",
-    "SkillUnlock_PoseidonOrca",
-    "GrapplingGun",
-    "GrapplingGun2",
-    "GrapplingGun3", 
-    "GrapplingGun4",
-    "GrapplingGun5",
-    "GuildChest",
-    "Homeward"
-  ]
+    "bDisplayPvPItemNumOnWorldMap_BaseCamp": false,
+    "bDisplayPvPItemNumOnWorldMap_Player": false,
+    "bInvisibleOtherGuildBaseCampAreaFX": true,
+    "DenyTechnologyList": "SkillUnlock_JetDragon,SkillUnlock_IceHorse,SkillUnlock_IceHorse_Dark,SkillUnlock_SaintCentaur,SkillUnlock_BlackCentaur,SkillUnlock_DarkMechaDragon,SkillUnlock_PoseidonOrca,GrapplingGun,GrapplingGun2,GrapplingGun3,GrapplingGun4,GrapplingGun5,GuildChest,Homeward"
+  }
 }

@@ -471,6 +471,14 @@ create_emergency_backup() {
     if [[ -f "$backup_file" ]]; then
         local backup_size=$(du -sh "$backup_file" | cut -f1)
         log_success "Emergency backup created: $backup_name ($backup_size)"
+
+        # Retain only the 3 most recent emergency backups per game+instance+env
+        local old_backups=($(find "$backup_dir" -name "emergency_*_${game}_${instance}_${env}_*.tar.gz" -type f -printf '%T@ %p\n' | sort -rn | tail -n +4 | cut -d' ' -f2-))
+        for old_backup in "${old_backups[@]}"; do
+            rm -f "$old_backup"
+            log_info "Removed old emergency backup: $(basename "$old_backup")"
+        done
+
         echo "$backup_file"
         return 0
     else

@@ -240,34 +240,15 @@ get_target_preset() {
     echo "$target_preset"
 }
 
-# Get current active preset from running server
+# Get current active preset from state file
 get_current_preset() {
-    local container_name="${GAME}-${ENVIRONMENT}-${INSTANCE}"
-    
-    # Check if container is running
-    if ! docker ps --format "{{.Names}}" | grep -q "^${container_name}$"; then
+    local state_file="${PROJECT_ROOT}/.state/${GAME}-${ENVIRONMENT}-${INSTANCE}.preset"
+
+    if [[ -f "$state_file" ]]; then
+        cat "$state_file"
+    else
         echo "unknown"
-        return 1
     fi
-    
-    # For now, we'll need to implement preset detection
-    # This could be done by:
-    # 1. Checking container labels
-    # 2. Reading from a state file
-    # 3. Analyzing container configuration
-    # 4. Using a heuristic based on instance name
-    
-    # Simple heuristic for now - should be improved
-    case "$INSTANCE" in
-        *tournament*)
-            # Check some config to determine if it's PvE or PvP
-            # For now, return unknown to force checking
-            echo "unknown"
-            ;;
-        *)
-            echo "default"
-            ;;
-    esac
 }
 
 # Check if we're in the allowed swap window
@@ -329,7 +310,7 @@ perform_config_swap() {
     # Perform the restart with new preset
     log_swap "INFO" "Restarting server with preset: $target_preset"
     
-    if "$PROJECT_ROOT/scripts/core/server-manager.sh" restart --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --preset "$target_preset" --force; then
+    if "$PROJECT_ROOT/scripts/core/server-manager.sh" config-swap --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --preset "$target_preset" --force; then
         log_swap "SUCCESS" "Config swap completed: $server_id now running $target_preset"
         
         # Health check if configured
