@@ -107,6 +107,9 @@ ark_generate_game_user_settings_ini() {
     local server_password=""
     local max_players=70
     local rcon_enabled="true"
+    local ports
+    ports=($(get_port_assignments "ark" "$instance" "$env"))
+    local rcon_port="${ports[2]}"
 
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         local base_name
@@ -158,8 +161,7 @@ ark_generate_game_user_settings_ini() {
             echo "ServerAdminPassword=${admin_password}"
             echo "ServerPassword=${server_password}"
             echo "MaxPlayers=${max_players}"
-            # RCON port uses internal container port
-            echo "RCONPort=27020"
+            echo "RCONPort=${rcon_port}"
             if [[ "$rcon_enabled" == "true" ]]; then
                 echo "RCONEnabled=True"
             else
@@ -1082,8 +1084,11 @@ ark_rcon_command() {
     admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config" 2>/dev/null || echo "")
 
     # Use rcon-cli inside the container (provided by Acekorneya image)
-    # Connect to localhost:27020 (internal RCON port)
-    docker exec "$container_name" rcon-cli -a 127.0.0.1:27020 -p "$admin_password" "$command" 2>/dev/null
+    local ports
+    ports=($(get_port_assignments "ark" "$instance" "$env"))
+    local rcon_port="${ports[2]}"
+
+    docker exec "$container_name" rcon-cli -a "127.0.0.1:${rcon_port}" -p "$admin_password" "$command" 2>/dev/null
 }
 
 # --- Utilities ---

@@ -5,9 +5,9 @@ services:
     depends_on:
       - ark-config
     ports:
-      - "${GAME_PORT}:7777/tcp"       # Game port (TCP)
-      - "${GAME_PORT}:7777/udp"       # Game port (UDP)
-      - "${RCON_PORT}:27020/tcp"      # RCON port
+      - "${GAME_PORT}:${GAME_PORT}/tcp"       # Game port (TCP)
+      - "${GAME_PORT}:${GAME_PORT}/udp"       # Game port (UDP)
+      - "${RCON_PORT}:${RCON_PORT}/tcp"       # RCON port
     volumes:
       - ark_server_files:/home/pok/arkserver
       - ark_saved_data:/home/pok/arkserver/ShooterGame/Saved
@@ -18,8 +18,8 @@ services:
       - MAP_NAME=${MAP}
       - SESSION_NAME=${SERVER_NAME}
       - MAX_PLAYERS=${MAX_PLAYERS}
-      - ASA_PORT=7777
-      - RCON_PORT=27020
+      - ASA_PORT=${GAME_PORT}
+      - RCON_PORT=${RCON_PORT}
       - RCON_ENABLED=${RCON_ENABLED}
       - SERVER_ADMIN_PASSWORD=${ADMIN_PASSWORD}
       - SERVER_PASSWORD=${SERVER_PASSWORD}
