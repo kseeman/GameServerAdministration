@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "environment": "production",
+    "description": "Production environment configuration for ARK Survival Ascended servers",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z"
+  },
+  "game": {
+    "name": "ARK Survival Ascended",
+    "docker_image": "ark-sa-server:latest",
+    "data_volume_path": "/home/ark/arkserver/ShooterGame/Saved",
+    "config_files": ["GameUserSettings.ini", "Game.ini"],
+    "config_path": "ShooterGame/Saved/Config/WindowsServer",
+    "backup_includes": ["ShooterGame/Saved"],
+    "health_check": {
+      "type": "rcon",
+      "port": "rcon_port",
+      "command": "ListPlayers"
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauldamir's ARK",
+    "server_description_suffix": "Official Server",
+    "admin_password": "admin_ark_prod_2024",
+    "base_password": ""
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 7777,
+      "query_port": 27015,
+      "rcon_port": 27020,
+      "restapi_port": 0
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": true
+  },
+  "docker_config": {
+    "restart_policy": "always",
+    "memory_limit": "20g",
+    "cpu_limit": "6"
+  },
+  "naming_conventions": {
+    "volume_pattern": "ark-vol-production-{instance}",
+    "container_pattern": "ark-production-{instance}",
+    "backup_pattern": "{preset}_{instance}_production_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 10,
+    "backup_schedule": "0 */2 * * *",
+    "backup_location": "./backups/production/{instance}/"
+  },
+  "instances": {
+    "island": {
+      "description": "The Island",
+      "map": "TheIsland_WP",
+      "default_preset": "default",
+      "port_offset": 0,
+      "max_players": 70
+    }
+  }
+}

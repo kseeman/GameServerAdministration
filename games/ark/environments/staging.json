@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "environment": "staging",
+    "description": "Staging environment configuration for ARK Survival Ascended servers",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z"
+  },
+  "game": {
+    "name": "ARK Survival Ascended",
+    "docker_image": "ark-sa-server:latest",
+    "data_volume_path": "/home/ark/arkserver/ShooterGame/Saved",
+    "config_files": ["GameUserSettings.ini", "Game.ini"],
+    "config_path": "ShooterGame/Saved/Config/WindowsServer",
+    "backup_includes": ["ShooterGame/Saved"],
+    "health_check": {
+      "type": "rcon",
+      "port": "rcon_port",
+      "command": "ListPlayers"
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauldamir's ARK (Staging)",
+    "server_description_suffix": "Staging Environment - Testing Only",
+    "admin_password": "admin_ark_staging_2024",
+    "base_password": ""
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 17777,
+      "query_port": 37015,
+      "rcon_port": 37020,
+      "restapi_port": 0
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": true
+  },
+  "docker_config": {
+    "restart_policy": "unless-stopped",
+    "memory_limit": "16g",
+    "cpu_limit": "4"
+  },
+  "naming_conventions": {
+    "volume_pattern": "ark-vol-staging-{instance}",
+    "container_pattern": "ark-staging-{instance}",
+    "backup_pattern": "{preset}_{instance}_staging_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 5,
+    "backup_schedule": "0 */4 * * *",
+    "backup_location": "./backups/staging/{instance}/"
+  },
+  "instances": {
+    "test": {
+      "description": "Testing server instance",
+      "map": "TheIsland_WP",
+      "default_preset": "default",
+      "port_offset": 0,
+      "max_players": 8
+    }
+  }
+}

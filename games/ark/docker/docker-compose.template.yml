@@ -1,0 +1,31 @@
+services:
+  ark-server:
+    image: ark-sa-server:latest
+    container_name: ${CONTAINER_NAME}
+    ports:
+      - "${GAME_PORT}:7777/udp"       # Game port
+      - "${GAME_PORT}:7777/tcp"       # Game port (TCP)
+      - "${PEER_PORT}:7778/udp"       # Peer port (game_port + 1)
+      - "${QUERY_PORT}:27015/udp"     # Steam query port
+      - "${RCON_PORT}:27020/tcp"      # RCON port
+    volumes:
+      - ark_saved_data:/home/ark/arkserver/ShooterGame/Saved
+    restart: ${RESTART_POLICY}
+    environment:
+      - MAP=${MAP}
+      - SESSION_NAME=${SERVER_NAME}
+      - MAX_PLAYERS=${MAX_PLAYERS}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD}
+      - SERVER_PASSWORD=${SERVER_PASSWORD}
+      - RCON_PORT=27020
+      - RCON_ENABLED=${RCON_ENABLED}
+      - UPDATE_ON_BOOT=${UPDATE_ON_BOOT}
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+
+volumes:
+  ark_saved_data:
+    external: true
+    name: ${VOLUME_NAME}
