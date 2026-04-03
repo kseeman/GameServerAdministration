@@ -1,0 +1,41 @@
+{
+  "metadata": {
+    "name": "Default",
+    "description": "Base Minecraft server configuration - vanilla survival",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z",
+    "inherits": null
+  },
+  "server_type": "VANILLA",
+  "minecraft_version": "LATEST",
+  "mod_config": {
+    "modrinth_projects": "",
+    "curseforge_files": "",
+    "mods": ""
+  },
+  "jvm_config": {
+    "memory": "4G",
+    "use_aikar_flags": "true"
+  },
+  "game_settings": {
+    "difficulty": "normal",
+    "gamemode": "survival",
+    "pvp": "true",
+    "max-players": 20,
+    "view-distance": 10,
+    "simulation-distance": 10,
+    "spawn-protection": 16,
+    "allow-flight": "false",
+    "motd": "A Minecraft Server",
+    "enable-command-block": "false",
+    "max-world-size": 29999984,
+    "level-type": "minecraft\\:normal",
+    "online-mode": "true",
+    "allow-nether": "true",
+    "spawn-monsters": "true",
+    "spawn-animals": "true",
+    "generate-structures": "true",
+    "max-tick-time": 60000,
+    "entity-broadcast-range-percentage": 100
+  }
+}

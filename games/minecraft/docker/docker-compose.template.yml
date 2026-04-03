@@ -1,0 +1,53 @@
+services:
+  minecraft-server:
+    image: itzg/minecraft-server:latest
+    container_name: ${CONTAINER_NAME}
+    ports:
+      - "${GAME_PORT}:25565/tcp"
+      - "${RCON_PORT}:25575/tcp"
+    volumes:
+      - minecraft_data:/data
+    restart: ${RESTART_POLICY}
+    environment:
+      - EULA=TRUE
+      - TYPE=${SERVER_TYPE}
+      - VERSION=${MINECRAFT_VERSION}
+      - MEMORY=${MEMORY}
+      - USE_AIKAR_FLAGS=${USE_AIKAR_FLAGS}
+      - RCON_PASSWORD=${RCON_PASSWORD}
+      - MODRINTH_PROJECTS=${MODRINTH_PROJECTS}
+      - MODS=${MODS}
+      - SERVER_NAME=${SERVER_NAME}
+      - MOTD=${MOTD}
+      - DIFFICULTY=${DIFFICULTY}
+      - MODE=${GAMEMODE}
+      - PVP=${PVP}
+      - MAX_PLAYERS=${MAX_PLAYERS}
+      - VIEW_DISTANCE=${VIEW_DISTANCE}
+      - SIMULATION_DISTANCE=${SIMULATION_DISTANCE}
+      - SPAWN_PROTECTION=${SPAWN_PROTECTION}
+      - ALLOW_FLIGHT=${ALLOW_FLIGHT}
+      - ENABLE_COMMAND_BLOCK=${ENABLE_COMMAND_BLOCK}
+      - MAX_WORLD_SIZE=${MAX_WORLD_SIZE}
+      - LEVEL_TYPE=${LEVEL_TYPE}
+      - ONLINE_MODE=${ONLINE_MODE}
+      - ALLOW_NETHER=${ALLOW_NETHER}
+      - SPAWN_MONSTERS=${SPAWN_MONSTERS}
+      - SPAWN_ANIMALS=${SPAWN_ANIMALS}
+      - GENERATE_STRUCTURES=${GENERATE_STRUCTURES}
+      - MAX_TICK_TIME=${MAX_TICK_TIME}
+      - ENTITY_BROADCAST_RANGE_PERCENTAGE=${ENTITY_BROADCAST_RANGE_PERCENTAGE}
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+    healthcheck:
+      test: mc-health
+      start_period: 5m
+      interval: 30s
+      retries: 6
+
+volumes:
+  minecraft_data:
+    external: true
+    name: ${VOLUME_NAME}

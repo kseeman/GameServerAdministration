@@ -1,0 +1,25 @@
+{
+  "metadata": {
+    "name": "Pixelmon",
+    "description": "Pixelmon NeoForge server with recommended settings",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z",
+    "inherits": "default.json"
+  },
+  "server_type": "NEOFORGE",
+  "minecraft_version": "1.21.1",
+  "mod_config": {
+    "modrinth_projects": "pixelmon",
+    "curseforge_files": "",
+    "mods": ""
+  },
+  "jvm_config": {
+    "memory": "8G",
+    "use_aikar_flags": "true"
+  },
+  "game_settings": {
+    "allow-flight": "true",
+    "max-tick-time": 90000,
+    "motd": "Pixelmon Server"
+  }
+}

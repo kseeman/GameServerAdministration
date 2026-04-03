@@ -1,0 +1,60 @@
+{
+  "metadata": {
+    "environment": "staging",
+    "description": "Staging environment configuration for Minecraft servers",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z"
+  },
+  "game": {
+    "name": "Minecraft",
+    "docker_image": "itzg/minecraft-server:latest",
+    "data_volume_path": "/data",
+    "config_files": ["server.properties"],
+    "backup_includes": ["world", "server.properties"],
+    "health_check": {
+      "type": "mc-health",
+      "port": "game_port"
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauldamir's Minecraft (Staging)",
+    "server_description_suffix": "Staging Environment - Testing Only",
+    "admin_password": "",
+    "rcon_password": "mc_rcon_staging_2024"
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 35565,
+      "query_port": 0,
+      "rcon_port": 35575,
+      "restapi_port": 0
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": true
+  },
+  "docker_config": {
+    "restart_policy": "unless-stopped",
+    "memory_limit": "10g",
+    "cpu_limit": "4"
+  },
+  "naming_conventions": {
+    "volume_pattern": "minecraft-vol-staging-{instance}",
+    "container_pattern": "minecraft-staging-{instance}",
+    "backup_pattern": "{preset}_{instance}_staging_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 5,
+    "backup_schedule": "0 */4 * * *",
+    "backup_location": "./backups/staging/{instance}/"
+  },
+  "instances": {
+    "test": {
+      "description": "Testing server instance",
+      "default_preset": "pixelmon",
+      "port_offset": 0,
+      "max_players": 8
+    }
+  }
+}
