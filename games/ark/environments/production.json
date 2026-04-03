@@ -27,9 +27,9 @@
   },
   "network_config": {
     "base_ports": {
-      "game_port": 7777,
-      "query_port": 27015,
-      "rcon_port": 27020,
+      "game_port": 7790,
+      "query_port": 27030,
+      "rcon_port": 27040,
       "restapi_port": 0
     },
     "port_offset_per_instance": 10,
