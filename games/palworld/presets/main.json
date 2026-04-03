@@ -1,0 +1,19 @@
+{
+  "metadata": {
+    "name": "Main",
+    "description": "Vauldamir's Main server - custom settings",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "Difficulty": "Normal",
+    "ExpRate": 1.5,
+    "PalCaptureRate": 1.0,
+    "CollectionDropRate": 1.2,
+    "DeathPenalty": "Item",
+    "BaseCampWorkerMaxNum": 20,
+    "PalEggDefaultHatchingTime": 36.0,
+    "WorkSpeedRate": 1.2
+  }
+}

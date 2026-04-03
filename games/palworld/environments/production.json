@@ -19,7 +19,7 @@
     }
   },
   "server_infrastructure": {
-    "base_server_name": "Vauldamir's Server",
+    "base_server_name": "Vauldamir's",
     "server_description_suffix": "Official Server",
     "admin_password": "admin_prod_secure_2024",
     "base_password": "letsride"
@@ -71,8 +71,8 @@
       "max_players": 32
     },
     "main": {
-      "description": "",
-      "default_preset": "default",
+      "description": "Main",
+      "default_preset": "main",
       "port_offset": 4,
       "max_players": 32
     }
