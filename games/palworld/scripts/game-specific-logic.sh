@@ -493,9 +493,9 @@ palworld_config_swap() {
         return 1
     fi
 
-    # Create emergency backup before swap
-    log_info "Creating emergency backup before config swap..."
-    create_emergency_backup "config-swap" "palworld" "$instance" "$env"
+    # Back up save data before swap (only SaveGames + Config, triggers REST API save first)
+    log_info "Creating pre-swap backup..."
+    palworld_backup_data "$instance" "$env" "pre-swap_${new_preset}_$(date +%Y%m%d_%H%M%S)"
 
     # Stop the server
     log_info "Stopping server for config swap..."
@@ -726,7 +726,8 @@ palworld_restore_data() {
         return 1
     fi
 
-    # Nuke existing SaveGames and Config, then replace with backup contents
+    # Ensure target directory structure exists, then nuke and replace
+    docker exec "$temp_container" mkdir -p /palworld/Pal/Saved 2>/dev/null
     log_info "Clearing existing SaveGames and Config..."
     docker exec "$temp_container" sh -c "rm -rf /palworld/Pal/Saved/SaveGames" 2>/dev/null || true
     docker exec "$temp_container" sh -c "rm -rf /palworld/Pal/Saved/Config" 2>/dev/null || true
