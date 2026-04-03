@@ -8,7 +8,8 @@
   },
   "game_settings": {
     "Difficulty": "Hard",
-    "PlayerDamageRateDefense": 0.5,
+    "PlayerDamageRateDefense": 0.25,
+    "BuildObjectDamageRate": 0.25,
     "DeathPenalty": "All",
     "bEnablePlayerToPlayerDamage": true,
     "bIsPvP": true,
@@ -34,6 +35,6 @@
     "bDisplayPvPItemNumOnWorldMap_BaseCamp": false,
     "bDisplayPvPItemNumOnWorldMap_Player": false,
     "bInvisibleOtherGuildBaseCampAreaFX": true,
-    "DenyTechnologyList": "SkillUnlock_JetDragon,SkillUnlock_IceHorse,SkillUnlock_IceHorse_Dark,SkillUnlock_SaintCentaur,SkillUnlock_BlackCentaur,SkillUnlock_DarkMechaDragon,SkillUnlock_PoseidonOrca,GrapplingGun,GrapplingGun2,GrapplingGun3,GrapplingGun4,GrapplingGun5,GuildChest,Homeward"
+    "DenyTechnologyList": "SkillUnlock_JetDragon,SkillUnlock_IceHorse,SkillUnlock_IceHorse_Dark,SkillUnlock_SaintCentaur,SkillUnlock_BlackCentaur,SkillUnlock_DarkMechaDragon,SkillUnlock_PoseidonOrca,GrapplingGun,GrapplingGun2,GrapplingGun3,GrapplingGun4,GrapplingGun5,GuildChest,Homeward,SkillUnlock_WeaselDragon, LauncherBullet"
   }
 }
