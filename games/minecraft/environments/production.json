@@ -50,10 +50,16 @@
     "backup_location": "./backups/production/{instance}/"
   },
   "instances": {
+    "vanilla": {
+      "description": "Vanilla",
+      "default_preset": "default",
+      "port_offset": 0,
+      "max_players": 20
+    },
     "pixelmon": {
       "description": "Pixelmon",
       "default_preset": "pixelmon",
-      "port_offset": 0,
+      "port_offset": 1,
       "max_players": 20
     }
   }
