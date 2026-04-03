@@ -7,13 +7,13 @@
     "inherits": "default.json"
   },
   "game_settings": {
-    "Difficulty": "Normal",
-    "ExpRate": 1.5,
-    "PalCaptureRate": 1.0,
-    "CollectionDropRate": 1.2,
-    "DeathPenalty": "Item",
-    "BaseCampWorkerMaxNum": 20,
-    "PalEggDefaultHatchingTime": 36.0,
-    "WorkSpeedRate": 1.2
+    "Difficulty": "None",
+    "BuildObjectDeteriorationDamageRate": 0.0,
+    "bEnableAimAssistPad": true,
+    "BaseCampWorkerMaxNum": 50,
+    "BaseCampMaxNumInGuild": 10,
+    "PalEggDefaultHatchingTime": 0.0,
+    "bShowPlayerList": false,
+    "bAllowGlobalPalboxImport": true
   }
 }
