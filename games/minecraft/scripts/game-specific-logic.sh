@@ -250,7 +250,7 @@ minecraft_start_server() {
 
     # Start server
     log_info "Starting Minecraft container: $container_name"
-    docker compose -f "$compose_file" up -d
+    docker compose -p "$container_name" -f "$compose_file" up -d
 
     if [[ $? -eq 0 ]]; then
         log_success "Minecraft server started: $container_name"
@@ -296,7 +296,7 @@ minecraft_stop_server() {
     fi
 
     if [[ -f "$compose_file" ]]; then
-        docker compose -f "$compose_file" down
+        docker compose -p "$container_name" -f "$compose_file" down
     else
         if container_exists "$container_name"; then
             docker stop "$container_name" 2>/dev/null
@@ -335,7 +335,7 @@ minecraft_restart_server() {
 
     local compose_file="${REPO_ROOT}/docker-compose-minecraft-${env}-${instance}.yml"
     if [[ -f "$compose_file" ]]; then
-        docker compose -f "$compose_file" restart
+        docker compose -p "$container_name" -f "$compose_file" restart
     else
         docker restart "$container_name"
     fi

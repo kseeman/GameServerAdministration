@@ -622,7 +622,7 @@ ark_start_server() {
 
     # Start server using generated compose file
     log_info "Starting ARK container: $container_name"
-    docker compose -f "$compose_file" up -d
+    docker compose -p "$container_name" -f "$compose_file" up -d
 
     if [[ $? -eq 0 ]]; then
         log_success "ARK SA server started: $container_name"
@@ -675,7 +675,7 @@ ark_stop_server() {
     # Try to use compose file if it exists
     if [[ -f "$compose_file" ]]; then
         log_info "Using compose file: $compose_file"
-        docker compose -f "$compose_file" down
+        docker compose -p "$container_name" -f "$compose_file" down
     else
         log_info "No compose file found, stopping container directly"
         if container_exists "$container_name"; then
@@ -720,7 +720,7 @@ ark_restart_server() {
     local compose_file="${REPO_ROOT}/docker-compose-ark-${env}-${instance}.yml"
 
     if [[ -f "$compose_file" ]]; then
-        docker compose -f "$compose_file" restart
+        docker compose -p "$container_name" -f "$compose_file" restart
     else
         docker restart "$container_name"
     fi

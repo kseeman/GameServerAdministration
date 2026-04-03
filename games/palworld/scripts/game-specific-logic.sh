@@ -332,7 +332,7 @@ palworld_start_server() {
 
     # Start server using generated compose file
     log_info "Starting Palworld container: $container_name"
-    docker compose -f "$compose_file" up -d
+    docker compose -p "$container_name" -f "$compose_file" up -d
 
     if [[ $? -eq 0 ]]; then
         log_success "Palworld server started: $container_name"
@@ -378,7 +378,7 @@ palworld_stop_server() {
     # Try to use compose file if it exists
     if [[ -f "$compose_file" ]]; then
         log_info "Using compose file: $compose_file"
-        docker compose -f "$compose_file" down
+        docker compose -p "$container_name" -f "$compose_file" down
     else
         log_info "No compose file found, stopping container directly"
         if container_exists "$container_name"; then
@@ -415,7 +415,7 @@ palworld_restart_server() {
     local compose_file="${REPO_ROOT}/docker-compose-${env}-${instance}.yml"
 
     if [[ -f "$compose_file" ]]; then
-        docker compose -f "$compose_file" restart
+        docker compose -p "$container_name" -f "$compose_file" restart
     else
         docker restart "$container_name"
     fi
