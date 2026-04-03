@@ -20,6 +20,27 @@ ARK_PRESETS_DIR="${REPO_ROOT}/games/ark/presets"
 ARK_VOLUME_MOUNT="/saved"
 ARK_CONFIG_SUBPATH="Config/WindowsServer"
 
+# Settings that ARK's dynamic config can apply live without restart.
+# These can appear in GameUserSettings.ini [ServerSettings] for dynamic config,
+# even if the preset stores some of them under Game.ini sections.
+ARK_HOT_SWAPPABLE_SETTINGS=(
+    "XPMultiplier" "TamingSpeedMultiplier" "HarvestAmountMultiplier" "HarvestHealthMultiplier"
+    "PlayerCharacterWaterDrainMultiplier" "PlayerCharacterFoodDrainMultiplier"
+    "PlayerCharacterStaminaDrainMultiplier" "PlayerCharacterHealthRecoveryMultiplier"
+    "DinoCharacterFoodDrainMultiplier" "DinoCharacterStaminaDrainMultiplier"
+    "DinoCharacterHealthRecoveryMultiplier" "DamageTakenMultiplier"
+    "DinoDamageMultiplier" "PlayerDamageMultiplier" "StructureDamageMultiplier"
+    "StructureResistanceMultiplier" "ResourcesRespawnPeriodMultiplier"
+    "NightTimeSpeedScale" "DayTimeSpeedScale" "ItemStackSizeMultiplier"
+    "MaxPersonalTamedDinos" "MaxTamedDinos" "AutoSavePeriodMinutes"
+    "MatingIntervalMultiplier" "EggHatchSpeedMultiplier" "BabyMatureSpeedMultiplier"
+    "BabyCuddleIntervalMultiplier" "BabyImprintAmountMultiplier"
+    "BabyFoodConsumptionSpeedMultiplier" "CropGrowthSpeedMultiplier"
+    "CraftXPMultiplier" "GenericXPMultiplier" "HarvestXPMultiplier"
+    "KillXPMultiplier" "SpecialXPMultiplier" "HexagonRewardMultiplier"
+    "LayEggIntervalMultiplier"
+)
+
 # --- Preset resolution ---
 
 # Resolve a preset JSON file with inheritance, outputting merged game_settings as JSON
@@ -276,6 +297,144 @@ ark_inject_settings() {
     fi
 }
 
+# --- Dynamic config (hot swap) ---
+
+# Generate a dynamic config .ini containing ONLY hot-swappable settings.
+# Pulls from both GameUserSettings.ServerSettings and Game.ShooterGameMode,
+# outputs everything under [ServerSettings] for ARK's dynamic config format.
+ark_generate_dynamic_config_ini() {
+    local preset_file="$1"
+
+    local resolved_settings
+    resolved_settings=$(ark_resolve_preset "$preset_file") || return 1
+
+    local gus_server
+    gus_server=$(echo "$resolved_settings" | jq '.GameUserSettings.ServerSettings // {}')
+    local game_mode
+    game_mode=$(echo "$resolved_settings" | jq '.Game."/Script/ShooterGame.ShooterGameMode" // {}')
+
+    echo "[ServerSettings]"
+
+    for key in "${ARK_HOT_SWAPPABLE_SETTINGS[@]}"; do
+        # Check GameUserSettings.ServerSettings first, then Game.ShooterGameMode
+        local value
+        value=$(echo "$gus_server" | jq -r --arg k "$key" '.[$k] // empty')
+        if [[ -z "$value" ]]; then
+            value=$(echo "$game_mode" | jq -r --arg k "$key" '.[$k] // empty')
+        fi
+        if [[ -n "$value" ]]; then
+            [[ "$value" == "true" ]] && value="True"
+            [[ "$value" == "false" ]] && value="False"
+            echo "${key}=${value}"
+        fi
+    done
+}
+
+# Write dynamic config .ini to the shared nginx volume
+ark_write_dynamic_config() {
+    local volume_name="$1"
+    local preset_file="$2"
+    local env="$3"
+    local instance="$4"
+
+    log_info "Writing dynamic config to volume: $volume_name"
+
+    local config_content
+    config_content=$(ark_generate_dynamic_config_ini "$preset_file") || return 1
+
+    local temp_file
+    temp_file=$(mktemp)
+    echo "$config_content" > "$temp_file"
+
+    local temp_container="temp-ark-dynconfig-$$"
+
+    docker run -d --name "$temp_container" \
+        -v "$volume_name:/config" \
+        ubuntu:22.04 sleep 60 >/dev/null
+
+    if [[ $? -ne 0 ]]; then
+        log_error "Failed to create temporary container for dynamic config"
+        rm -f "$temp_file"
+        return 1
+    fi
+
+    docker cp "$temp_file" "$temp_container:/config/GameUserSettings.ini"
+    # nginx:alpine runs as nginx user — ensure the file is world-readable
+    docker exec "$temp_container" chmod 644 /config/GameUserSettings.ini 2>/dev/null
+    local result=$?
+
+    docker rm -f "$temp_container" >/dev/null 2>&1
+    rm -f "$temp_file"
+
+    if [[ $result -eq 0 ]]; then
+        log_success "Dynamic config written"
+        return 0
+    else
+        log_error "Failed to write dynamic config"
+        return 1
+    fi
+}
+
+# Check if ALL changed settings between two presets are hot-swappable.
+# Returns 0 if hot swap is possible, 1 if any setting requires restart.
+ark_is_hot_swappable() {
+    local current_preset_file="$1"
+    local new_preset_file="$2"
+
+    local current_settings new_settings
+    current_settings=$(ark_resolve_preset "$current_preset_file") || return 1
+    new_settings=$(ark_resolve_preset "$new_preset_file") || return 1
+
+    # Get all changed keys across both ini file sections
+    local changed_keys
+    changed_keys=$(jq -n --argjson a "$current_settings" --argjson b "$new_settings" '
+        # Flatten all settings into key=value pairs for comparison
+        def flatten_section(ini; section):
+            (ini[ini_name][section] // {}) | to_entries[] | {key: .key, value: .value};
+
+        # Collect all keys from both GameUserSettings and Game sections
+        ([$a, $b] | map(
+            (.GameUserSettings // {} | to_entries[] | .value | to_entries[] | .key),
+            (.Game // {} | to_entries[] | .value | to_entries[] | .key)
+        ) | flatten | unique) as $all_keys |
+
+        # For each key, compare values across all sections
+        [$all_keys[] | . as $key |
+            # Find value in current preset (check all sections)
+            ([$a.GameUserSettings // {} | to_entries[] | .value[$key] // null] +
+             [$a.Game // {} | to_entries[] | .value[$key] // null] | map(select(. != null)) | first // null) as $old_val |
+            # Find value in new preset
+            ([$b.GameUserSettings // {} | to_entries[] | .value[$key] // null] +
+             [$b.Game // {} | to_entries[] | .value[$key] // null] | map(select(. != null)) | first // null) as $new_val |
+            select($old_val != $new_val) | $key
+        ] | unique | .[]
+    ' -r 2>/dev/null)
+
+    if [[ -z "$changed_keys" ]]; then
+        log_info "No settings changed between presets"
+        return 0
+    fi
+
+    # Check each changed key against the allowlist
+    while IFS= read -r key; do
+        [[ -z "$key" ]] && continue
+        local is_hot=false
+        for hot_key in "${ARK_HOT_SWAPPABLE_SETTINGS[@]}"; do
+            if [[ "$key" == "$hot_key" ]]; then
+                is_hot=true
+                break
+            fi
+        done
+        if [[ "$is_hot" == false ]]; then
+            log_info "Setting '$key' requires server restart (not hot-swappable)"
+            return 1
+        fi
+    done <<< "$changed_keys"
+
+    log_info "All changed settings are hot-swappable"
+    return 0
+}
+
 # --- State tracking ---
 
 ark_save_active_preset() {
@@ -353,6 +512,7 @@ ark_start_server() {
     local rcon_enabled="TRUE"
     local update_on_boot="FALSE"
     local server_files_volume="ark-server-files-${env}"
+    local dynamic_config_volume="ark-dynconfig-${env}-${instance}"
 
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         local base_name
@@ -390,6 +550,7 @@ ark_start_server() {
     RCON_PORT="$rcon_port" \
     VOLUME_NAME="$volume_name" \
     SERVER_FILES_VOLUME="$server_files_volume" \
+    DYNAMIC_CONFIG_VOLUME="$dynamic_config_volume" \
     CONTAINER_NAME="$container_name" \
     SERVER_NAME="$server_name" \
     ADMIN_PASSWORD="$admin_password" \
@@ -412,6 +573,13 @@ ark_start_server() {
         log_info "Creating save data volume: $volume_name"
         docker volume create "$volume_name" >/dev/null
     fi
+    # Dynamic config volume for the nginx sidecar (hot swap support)
+    if ! volume_exists "$dynamic_config_volume"; then
+        log_info "Creating dynamic config volume: $dynamic_config_volume"
+        docker volume create "$dynamic_config_volume" >/dev/null
+    fi
+    # Seed dynamic config with initial preset settings
+    ark_write_dynamic_config "$dynamic_config_volume" "$preset_file" "$env" "$instance"
 
     # If backup file specified, restore world data BEFORE starting container
     if [[ -n "$backup_file" ]]; then
@@ -630,18 +798,53 @@ ark_config_swap() {
         return 1
     fi
 
-    # Create emergency backup before swap
-    log_info "Creating emergency backup before config swap..."
-    create_emergency_backup "config-swap" "ark" "$instance" "$env"
+    # --- Hot swap path: if server is running and all changes are hot-swappable ---
+    if container_running "$container_name"; then
+        local current_preset
+        current_preset=$(ark_get_active_preset "$instance" "$env")
+        local current_preset_file="${ARK_PRESETS_DIR}/${current_preset}.json"
 
-    # Stop the server
+        if [[ "$current_preset" != "unknown" && -f "$current_preset_file" ]] && \
+           ark_is_hot_swappable "$current_preset_file" "$new_preset_file"; then
+
+            log_info "Performing hot config swap (no restart)..."
+            local dynamic_config_volume="ark-dynconfig-${env}-${instance}"
+
+            if ark_write_dynamic_config "$dynamic_config_volume" "$new_preset_file" "$env" "$instance"; then
+                log_info "Triggering ForceUpdateDynamicConfig via RCON..."
+                if ark_rcon_command "$instance" "$env" "ForceUpdateDynamicConfig"; then
+                    log_success "Hot config swap completed: $instance now running preset '$new_preset'"
+
+                    # Update static ini files so next cold restart uses the new preset
+                    local volume_name
+                    volume_name=$(get_volume_name "ark" "$instance" "$env")
+                    ark_inject_settings "$volume_name" "$new_preset_file" "$env" "$instance" 2>/dev/null || true
+
+                    ark_save_active_preset "$instance" "$env" "$new_preset"
+                    return 0
+                else
+                    log_warning "RCON ForceUpdateDynamicConfig failed, falling back to cold swap"
+                fi
+            else
+                log_warning "Failed to write dynamic config, falling back to cold swap"
+            fi
+        else
+            log_info "Preset changes include restart-required settings, using cold swap"
+        fi
+    else
+        log_info "Server is stopped, using cold swap"
+    fi
+
+    # --- Cold swap path: stop, reconfigure, start ---
+    log_info "Creating pre-swap backup..."
+    ark_backup_data "$instance" "$env" "pre-swap_${new_preset}_$(date +%Y%m%d_%H%M%S)"
+
     log_info "Stopping server for config swap..."
     ark_stop_server "$instance" "$env"
 
-    # Start with the new preset (start_server will inject settings into volume)
     log_info "Starting server with new preset: $new_preset"
     if ark_start_server "$instance" "$env" "" "$new_preset"; then
-        log_success "Config swap completed: $instance now running preset '$new_preset'"
+        log_success "Config swap completed (cold): $instance now running preset '$new_preset'"
         return 0
     else
         log_error "Failed to start server with new preset: $new_preset"
@@ -878,9 +1081,9 @@ ark_rcon_command() {
     local admin_password
     admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config" 2>/dev/null || echo "")
 
-    # Use mcrcon inside the container to send RCON command
+    # Use rcon-cli inside the container (provided by Acekorneya image)
     # Connect to localhost:27020 (internal RCON port)
-    docker exec "$container_name" mcrcon -H 127.0.0.1 -P 27020 -p "$admin_password" "$command" 2>/dev/null
+    docker exec "$container_name" rcon-cli -a 127.0.0.1:27020 -p "$admin_password" "$command" 2>/dev/null
 }
 
 # --- Utilities ---
@@ -958,4 +1161,5 @@ export -f ark_backup_data ark_restore_data
 export -f ark_get_ports ark_validate_preset
 export -f ark_resolve_preset ark_generate_game_user_settings_ini ark_generate_game_ini
 export -f ark_inject_settings ark_rcon_command
+export -f ark_generate_dynamic_config_ini ark_write_dynamic_config ark_is_hot_swappable
 export -f ark_save_active_preset ark_get_active_preset

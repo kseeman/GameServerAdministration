@@ -2,6 +2,8 @@ services:
   ark-server:
     image: acekorneya/asa_server:2_1_latest
     container_name: ${CONTAINER_NAME}
+    depends_on:
+      - ark-config
     ports:
       - "${GAME_PORT}:7777/tcp"       # Game port (TCP)
       - "${GAME_PORT}:7777/udp"       # Game port (UDP)
@@ -25,10 +27,18 @@ services:
       - RANDOM_STARTUP_DELAY=FALSE
       - BATTLEEYE=FALSE
       - API=FALSE
+      - CUSTOM_SERVER_ARGS=-UseDynamicConfig -CustomDynamicConfigUrl=http://ark-config:80/GameUserSettings.ini
     deploy:
       resources:
         limits:
           memory: ${MEMORY_LIMIT}
+
+  ark-config:
+    image: nginx:alpine
+    container_name: ${CONTAINER_NAME}-config
+    volumes:
+      - ark_dynamic_config:/usr/share/nginx/html:ro
+    restart: ${RESTART_POLICY}
 
 volumes:
   ark_server_files:
@@ -37,3 +47,6 @@ volumes:
   ark_saved_data:
     external: true
     name: ${VOLUME_NAME}
+  ark_dynamic_config:
+    external: true
+    name: ${DYNAMIC_CONFIG_VOLUME}
