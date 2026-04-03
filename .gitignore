@@ -4,3 +4,4 @@ palworld-docker/
 backups/
 docker-compose-*.yml
 .state/
+config/
