@@ -7,11 +7,12 @@
   },
   "game": {
     "name": "ARK Survival Ascended",
-    "docker_image": "ark-sa-server:latest",
-    "data_volume_path": "/home/ark/arkserver/ShooterGame/Saved",
+    "docker_image": "acekorneya/asa_server:2_1_latest",
+    "data_volume_path": "/home/pok/arkserver/ShooterGame/Saved",
     "config_files": ["GameUserSettings.ini", "Game.ini"],
-    "config_path": "ShooterGame/Saved/Config/WindowsServer",
+    "config_path": "Config/WindowsServer",
     "backup_includes": ["ShooterGame/Saved"],
+    "server_files_volume": "ark-server-files-production",
     "health_check": {
       "type": "rcon",
       "port": "rcon_port",

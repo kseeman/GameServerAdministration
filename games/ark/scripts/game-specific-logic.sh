@@ -336,12 +336,9 @@ ark_start_server() {
     local ports
     ports=($(get_port_assignments "ark" "$instance" "$env"))
     local game_port="${ports[0]}"
-    local query_port="${ports[1]}"
     local rcon_port="${ports[2]}"
-    # Peer port is always game_port + 1
-    local peer_port=$((game_port + 1))
 
-    log_info "Using ports: Game=$game_port, Peer=$peer_port, Query=$query_port, RCON=$rcon_port"
+    log_info "Using ports: Game=$game_port, RCON=$rcon_port"
 
     # Get server infrastructure settings from environment config
     local env_config
@@ -353,8 +350,9 @@ ark_start_server() {
     local restart_policy="unless-stopped"
     local memory_limit="16g"
     local map="TheIsland_WP"
-    local rcon_enabled="true"
-    local update_on_boot="false"
+    local rcon_enabled="TRUE"
+    local update_on_boot="FALSE"
+    local server_files_volume="ark-server-files-${env}"
 
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         local base_name
@@ -368,7 +366,11 @@ ark_start_server() {
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "16g"' "$env_config")
         map=$(jq -r ".instances.\"$instance\".map // \"TheIsland_WP\"" "$env_config")
-        rcon_enabled=$(jq -r '.network_config.rcon_enabled // true' "$env_config")
+        server_files_volume=$(jq -r ".game.server_files_volume // \"ark-server-files-${env}\"" "$env_config")
+        # Acekorneya image uses TRUE/FALSE (uppercase)
+        local rcon_raw
+        rcon_raw=$(jq -r '.network_config.rcon_enabled // true' "$env_config")
+        [[ "$rcon_raw" == "true" ]] && rcon_enabled="TRUE" || rcon_enabled="FALSE"
     fi
 
     # Generate docker-compose file from template
@@ -385,10 +387,9 @@ ark_start_server() {
 
     INSTANCE="$instance" \
     GAME_PORT="$game_port" \
-    PEER_PORT="$peer_port" \
-    QUERY_PORT="$query_port" \
     RCON_PORT="$rcon_port" \
     VOLUME_NAME="$volume_name" \
+    SERVER_FILES_VOLUME="$server_files_volume" \
     CONTAINER_NAME="$container_name" \
     SERVER_NAME="$server_name" \
     ADMIN_PASSWORD="$admin_password" \
@@ -401,9 +402,14 @@ ark_start_server() {
     UPDATE_ON_BOOT="$update_on_boot" \
     envsubst < "$template_file" > "$compose_file"
 
-    # Create Docker volume if it doesn't exist
+    # Create Docker volumes if they don't exist
+    # Server files volume is shared across instances in the same environment
+    if ! volume_exists "$server_files_volume"; then
+        log_info "Creating server files volume: $server_files_volume"
+        docker volume create "$server_files_volume" >/dev/null
+    fi
     if ! volume_exists "$volume_name"; then
-        log_info "Creating Docker volume: $volume_name"
+        log_info "Creating save data volume: $volume_name"
         docker volume create "$volume_name" >/dev/null
     fi
 
@@ -466,8 +472,6 @@ ark_start_server() {
         echo "  Container: $container_name"
         echo "  Volume: $volume_name"
         echo "  Game Port: $game_port"
-        echo "  Peer Port: $peer_port"
-        echo "  Query Port: $query_port"
         echo "  RCON Port: $rcon_port"
 
         if [[ -n "$backup_file" ]]; then
