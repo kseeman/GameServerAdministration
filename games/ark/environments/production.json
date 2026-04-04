@@ -29,7 +29,7 @@
     "base_ports": {
       "game_port": 7790,
       "query_port": 27030,
-      "rcon_port": 27040,
+      "rcon_port": 27050,
       "restapi_port": 0
     },
     "port_offset_per_instance": 10,
