@@ -298,7 +298,7 @@ perform_config_swap() {
         local timestamp=$(date +%Y%m%d_%H%M%S)
         local backup_name="pre-swap_${current_preset}_${timestamp}"
         
-        if ! "$PROJECT_ROOT/scripts/core/server-manager.sh" backup --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --quiet; then
+        if ! "$PROJECT_ROOT/scripts/core/server-manager.sh" backup --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --force; then
             log_swap "WARNING" "Backup failed, but continuing with swap"
         else
             log_swap "SUCCESS" "Pre-swap backup created"
@@ -319,7 +319,7 @@ perform_config_swap() {
         
         if [[ "$health_check" == "true" ]]; then
             sleep 30  # Give server time to start
-            if "$PROJECT_ROOT/scripts/core/server-manager.sh" health --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --quiet; then
+            if "$PROJECT_ROOT/scripts/core/server-manager.sh" health --game "$GAME" --instance "$INSTANCE" --env "$ENVIRONMENT" --force; then
                 log_swap "SUCCESS" "Post-swap health check passed"
             else
                 log_swap "WARNING" "Post-swap health check failed - server may need attention"
