@@ -502,7 +502,7 @@ ark_start_server() {
     local query_port="${ports[1]}"
     local rcon_port="${ports[2]}"
 
-    log_info "Using ports: Game=$game_port, RCON=$rcon_port"
+    log_info "Using ports: Game=$game_port, Query=$query_port, RCON=$rcon_port"
 
     # Get server infrastructure settings from environment config
     local env_config
@@ -652,6 +652,7 @@ ark_start_server() {
         echo "  Container: $container_name"
         echo "  Volume: $volume_name"
         echo "  Game Port: $game_port"
+        echo "  Query Port: $query_port"
         echo "  RCON Port: $rcon_port"
 
         if [[ -n "$backup_file" ]]; then
