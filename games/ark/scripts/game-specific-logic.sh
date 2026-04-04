@@ -499,6 +499,7 @@ ark_start_server() {
     local ports
     ports=($(get_port_assignments "ark" "$instance" "$env"))
     local game_port="${ports[0]}"
+    local query_port="${ports[1]}"
     local rcon_port="${ports[2]}"
 
     log_info "Using ports: Game=$game_port, RCON=$rcon_port"
@@ -555,6 +556,7 @@ ark_start_server() {
 
     INSTANCE="$instance" \
     GAME_PORT="$game_port" \
+    QUERY_PORT="$query_port" \
     RCON_PORT="$rcon_port" \
     VOLUME_NAME="$volume_name" \
     SERVER_FILES_VOLUME="$server_files_volume" \
