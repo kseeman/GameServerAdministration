@@ -23,7 +23,7 @@
     "base_server_name": "Vauldamir's ARK",
     "server_description_suffix": "Official Server",
     "admin_password": "admin_ark_prod_2024",
-    "base_password": ""
+    "base_password": "letsride"
   },
   "network_config": {
     "base_ports": {
@@ -59,6 +59,15 @@
       "default_preset": "default",
       "port_offset": 0,
       "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "aberration": {
+      "description": "Aberration",
+      "map": "Aberration_WP",
+      "default_preset": "default",
+      "port_offset": 1,
+      "max_players": 30,
       "mod_ids": "",
       "passive_mods": ""
     }
