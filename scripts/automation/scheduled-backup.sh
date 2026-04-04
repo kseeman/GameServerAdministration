@@ -9,6 +9,7 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 
 # Source dependencies
 source "$PROJECT_ROOT/scripts/shared/server-utils.sh"
+source "$PROJECT_ROOT/scripts/shared/game-plugins.sh"
 
 # Configuration
 BACKUP_TYPE="scheduled"
