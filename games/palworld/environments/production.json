@@ -47,7 +47,7 @@
     "backup_pattern": "{preset}_{instance}_production_{timestamp}.tar.gz"
   },
   "backup_config": {
-    "backup_retention": 20,
+    "backup_retention": 48,
     "backup_schedule": "0 * * * *",
     "backup_location": "./backups/production/{instance}/"
   },
