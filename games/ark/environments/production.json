@@ -58,7 +58,9 @@
       "map": "TheIsland_WP",
       "default_preset": "default",
       "port_offset": 0,
-      "max_players": 70
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
     }
   }
 }

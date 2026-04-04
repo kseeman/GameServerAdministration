@@ -27,6 +27,8 @@ services:
       - RANDOM_STARTUP_DELAY=FALSE
       - BATTLEEYE=FALSE
       - API=FALSE
+      - MOD_IDS=${MOD_IDS}
+      - PASSIVE_MODS=${PASSIVE_MODS}
       - CUSTOM_SERVER_ARGS=-UseDynamicConfig -CustomDynamicConfigUrl=http://ark-config:80/GameUserSettings.ini
     deploy:
       resources:

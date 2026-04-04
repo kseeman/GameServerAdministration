@@ -515,6 +515,8 @@ ark_start_server() {
     local map="TheIsland_WP"
     local rcon_enabled="TRUE"
     local update_on_boot="FALSE"
+    local mod_ids=""
+    local passive_mods=""
     local server_files_volume="ark-server-files-${env}"
     local dynamic_config_volume="ark-dynconfig-${env}-${instance}"
 
@@ -535,6 +537,8 @@ ark_start_server() {
         local rcon_raw
         rcon_raw=$(jq -r '.network_config.rcon_enabled // true' "$env_config")
         [[ "$rcon_raw" == "true" ]] && rcon_enabled="TRUE" || rcon_enabled="FALSE"
+        mod_ids=$(jq -r ".instances.\"$instance\".mod_ids // \"\"" "$env_config")
+        passive_mods=$(jq -r ".instances.\"$instance\".passive_mods // \"\"" "$env_config")
     fi
 
     # Generate docker-compose file from template
@@ -565,6 +569,8 @@ ark_start_server() {
     MAP="$map" \
     RCON_ENABLED="$rcon_enabled" \
     UPDATE_ON_BOOT="$update_on_boot" \
+    MOD_IDS="$mod_ids" \
+    PASSIVE_MODS="$passive_mods" \
     envsubst < "$template_file" > "$compose_file"
 
     # Create Docker volumes if they don't exist
