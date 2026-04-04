@@ -246,9 +246,8 @@ backup_instance() {
         return 1
     fi
     
-    # Use timeout to prevent hanging
-    local backup_result
-    if timeout "$BACKUP_TIMEOUT" bash -c "call_plugin_function \"$game\" \"backup_data\" \"$instance\" \"$env\" \"$backup_name\" \"$active_preset\""; then
+    # Call plugin backup function directly (not via bash -c, which loses environment)
+    if call_plugin_function "$game" "backup_data" "$instance" "$env" "$backup_name" "$active_preset"; then
         log_backup "SUCCESS" "Backup completed for $instance_id: $backup_name"
         
         # Clean old backups based on environment retention policy
