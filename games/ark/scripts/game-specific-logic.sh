@@ -681,18 +681,27 @@ ark_stop_server() {
     fi
 
     # Try to use compose file if it exists
+    local stop_rc=0
     if [[ -f "$compose_file" ]]; then
         log_info "Using compose file: $compose_file"
-        docker compose -p "$container_name" -f "$compose_file" down
+        docker compose -p "$container_name" -f "$compose_file" down || stop_rc=$?
     else
         log_info "No compose file found, stopping container directly"
         if container_exists "$container_name"; then
-            docker stop "$container_name" 2>/dev/null
-            docker rm "$container_name" 2>/dev/null
+            docker stop "$container_name" 2>/dev/null || stop_rc=$?
+            docker rm "$container_name" 2>/dev/null || true
         fi
     fi
 
-    if [[ $? -eq 0 ]]; then
+    # Also stop the config sidecar if still running
+    local config_container="${container_name}-config"
+    if container_exists "$config_container"; then
+        log_info "Stopping config sidecar: $config_container"
+        docker stop "$config_container" 2>/dev/null || true
+        docker rm "$config_container" 2>/dev/null || true
+    fi
+
+    if [[ $stop_rc -eq 0 ]]; then
         log_success "ARK SA server stopped: $container_name"
         return 0
     else
