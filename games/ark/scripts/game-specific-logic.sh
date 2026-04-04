@@ -701,13 +701,15 @@ ark_stop_server() {
         docker rm "$config_container" 2>/dev/null || true
     fi
 
-    if [[ $stop_rc -eq 0 ]]; then
-        log_success "ARK SA server stopped: $container_name"
-        return 0
-    else
+    # Verify the container is actually gone
+    if container_exists "$container_name"; then
+        log_warning "Container $container_name is still running after stop attempt"
         log_error "Failed to stop ARK SA server: $container_name"
         return 1
     fi
+
+    log_success "ARK SA server stopped: $container_name"
+    return 0
 }
 
 ark_restart_server() {
