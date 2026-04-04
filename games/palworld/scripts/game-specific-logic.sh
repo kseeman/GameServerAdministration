@@ -495,6 +495,19 @@ palworld_config_swap() {
         return 1
     fi
 
+    # Announce restart to players
+    local preset_name
+    preset_name=$(jq -r '.metadata.name // "new preset"' "$new_preset_file")
+    if container_running "$container_name"; then
+        log_info "Announcing config swap to players..."
+        palworld_announce "$instance" "$env" "Server switching to ${preset_name} in 60 seconds. Please find a safe location!"
+        sleep 30
+        palworld_announce "$instance" "$env" "Server restarting in 30 seconds..."
+        sleep 20
+        palworld_announce "$instance" "$env" "Server restarting in 10 seconds!"
+        sleep 10
+    fi
+
     # Back up save data before swap (only SaveGames + Config, triggers REST API save first)
     log_info "Creating pre-swap backup..."
     palworld_backup_data "$instance" "$env" "pre-swap_${new_preset}_$(date +%Y%m%d_%H%M%S)"
@@ -752,6 +765,35 @@ palworld_restore_data() {
     return 0
 }
 
+# --- Announce ---
+
+palworld_announce() {
+    local instance="$1"
+    local env="$2"
+    local message="$3"
+
+    local container_name=$(get_container_name "palworld" "$instance" "$env")
+
+    if ! container_running "$container_name"; then
+        return 1
+    fi
+
+    local ports=($(get_port_assignments "palworld" "$instance" "$env"))
+    local restapi_port="${ports[3]}"
+
+    local env_config=$(get_game_env_config "palworld" "$env")
+    local admin_password="adminpass123"
+    if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
+        admin_password=$(jq -r '.server_infrastructure.admin_password // "adminpass123"' "$env_config")
+    fi
+
+    curl -s -X POST \
+        -H "Content-Type: application/json" \
+        -u admin:"$admin_password" \
+        -d "{\"message\": \"$message\"}" \
+        "http://localhost:${restapi_port}/v1/api/announce" 2>/dev/null
+}
+
 # --- Utilities ---
 
 palworld_get_ports() {
@@ -815,4 +857,5 @@ export -f palworld_health_check palworld_config_swap
 export -f palworld_backup_data palworld_restore_data
 export -f palworld_get_ports palworld_validate_preset
 export -f palworld_resolve_preset palworld_generate_settings_ini palworld_inject_settings
+export -f palworld_announce
 export -f palworld_save_active_preset palworld_get_active_preset
