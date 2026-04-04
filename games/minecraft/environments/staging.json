@@ -25,7 +25,7 @@
   "network_config": {
     "base_ports": {
       "game_port": 35565,
-      "query_port": 0,
+      "query_port": 39132,
       "rcon_port": 35575,
       "restapi_port": 0
     },

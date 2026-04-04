@@ -105,9 +105,10 @@ minecraft_start_server() {
     local ports
     ports=($(get_port_assignments "minecraft" "$instance" "$env"))
     local game_port="${ports[0]}"
+    local bedrock_port="${ports[1]}"
     local rcon_port="${ports[2]}"
 
-    log_info "Using ports: Game=$game_port, RCON=$rcon_port"
+    log_info "Using ports: Game=$game_port, Bedrock=$bedrock_port, RCON=$rcon_port"
 
     # Resolve preset with inheritance
     local resolved
@@ -126,6 +127,8 @@ minecraft_start_server() {
     modrinth_projects=$(echo "$resolved" | jq -r '.mod_config.modrinth_projects // ""')
     local mods
     mods=$(echo "$resolved" | jq -r '.mod_config.mods // ""')
+    local plugins
+    plugins=$(echo "$resolved" | jq -r '.mod_config.plugins // ""')
 
     # Extract game_settings and convert to env var format
     local difficulty
@@ -200,6 +203,7 @@ minecraft_start_server() {
     CONTAINER_NAME="$container_name" \
     VOLUME_NAME="$volume_name" \
     GAME_PORT="$game_port" \
+    BEDROCK_PORT="$bedrock_port" \
     RCON_PORT="$rcon_port" \
     RESTART_POLICY="$restart_policy" \
     MEMORY_LIMIT="$memory_limit" \
@@ -210,6 +214,7 @@ minecraft_start_server() {
     RCON_PASSWORD="$rcon_password" \
     MODRINTH_PROJECTS="$modrinth_projects" \
     MODS="$mods" \
+    PLUGINS="$plugins" \
     SERVER_NAME="$server_name" \
     MOTD="$motd" \
     DIFFICULTY="$difficulty" \
@@ -268,6 +273,7 @@ minecraft_start_server() {
         echo "  Container: $container_name"
         echo "  Volume: $volume_name"
         echo "  Game Port: $game_port"
+        echo "  Bedrock Port: $bedrock_port"
         echo "  RCON Port: $rcon_port"
         echo "  Memory: $memory"
         [[ -n "$modrinth_projects" ]] && echo "  Mods (Modrinth): $modrinth_projects"
