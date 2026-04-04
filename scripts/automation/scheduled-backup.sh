@@ -326,35 +326,15 @@ run_scheduled_backup() {
         
         # Check if we should backup this instance
         if ! should_backup_instance "$game" "$env" "$instance"; then
-            ((skip_count++))
+            skip_count=$((skip_count + 1))
             continue
         fi
         
-        # Wait for available slot if at max concurrency
-        while [[ $active_jobs -ge $MAX_CONCURRENT_BACKUPS ]]; do
-            sleep 5
-            # Count active background jobs
-            active_jobs=$(jobs -r | wc -l)
-        done
-        
-        # Start backup in background
-        (
-            if backup_instance "$game" "$env" "$instance"; then
-                exit 0
-            else
-                exit 1
-            fi
-        ) &
-        
-        ((active_jobs++))
-    done
-    
-    # Wait for all background jobs to complete
-    for job in $(jobs -p); do
-        if wait "$job"; then
-            ((success_count++))
+        # Run backup sequentially (background subshells lose loaded plugin functions)
+        if backup_instance "$game" "$env" "$instance"; then
+            success_count=$((success_count + 1))
         else
-            ((failure_count++))
+            failure_count=$((failure_count + 1))
         fi
     done
     
