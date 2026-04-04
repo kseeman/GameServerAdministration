@@ -9,8 +9,11 @@
 
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-source "${REPO_ROOT}/scripts/shared/server-utils.sh"
+# Use REPO_ROOT from server-utils.sh if already set, otherwise derive it
+if [[ -z "${REPO_ROOT:-}" ]]; then
+    REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+    source "${REPO_ROOT}/scripts/shared/server-utils.sh"
+fi
 
 # Minecraft-specific paths
 MINECRAFT_DOCKER_DIR="${REPO_ROOT}/games/minecraft/docker"

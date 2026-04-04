@@ -9,8 +9,10 @@
 
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
-source "${REPO_ROOT}/scripts/shared/server-utils.sh"
+if [[ -z "${REPO_ROOT:-}" ]]; then
+    REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+    source "${REPO_ROOT}/scripts/shared/server-utils.sh"
+fi
 
 # ARK-specific paths and configuration
 ARK_DOCKER_DIR="${REPO_ROOT}/games/ark/docker"
