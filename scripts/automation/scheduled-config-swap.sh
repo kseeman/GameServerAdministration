@@ -209,7 +209,7 @@ get_current_day() {
 
 # Get current hour (24-hour format)
 get_current_hour() {
-    date '+%H'
+    date '+%-H'
 }
 
 # Get target preset for current day/time
