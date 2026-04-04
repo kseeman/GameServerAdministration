@@ -31,7 +31,7 @@ services:
       - API=FALSE
       - MOD_IDS=${MOD_IDS}
       - PASSIVE_MODS=${PASSIVE_MODS}
-      - CUSTOM_SERVER_ARGS=-UseDynamicConfig -CustomDynamicConfigUrl=http://ark-config:80/GameUserSettings.ini
+      - CUSTOM_SERVER_ARGS=-QueryPort=${QUERY_PORT} -UseDynamicConfig -CustomDynamicConfigUrl=http://ark-config:80/GameUserSettings.ini
     deploy:
       resources:
         limits:
