@@ -74,8 +74,18 @@ palworld_generate_settings_ini() {
         elif [[ "$value" == "false" ]]; then
             value="False"
         fi
-        # Quote string values that contain spaces, commas, or are URLs
-        if [[ "$value" =~ [[:space:],] || "$value" =~ ^https?:// ]]; then
+        # Handle list values like DenyTechnologyList: convert "a,b,c" to ("a","b","c")
+        if [[ "$value" == *,* && ! "$value" =~ ^https?:// && ! "$value" =~ ^\( ]]; then
+            # Convert comma-separated list to ("item1","item2",...) format
+            local formatted_list=""
+            IFS=',' read -ra items <<< "$value"
+            for item in "${items[@]}"; do
+                item=$(echo "$item" | xargs)  # trim whitespace
+                [[ -n "$formatted_list" ]] && formatted_list="${formatted_list},"
+                formatted_list="${formatted_list}\"${item}\""
+            done
+            value="(${formatted_list})"
+        elif [[ "$value" =~ [[:space:]] || "$value" =~ ^https?:// ]]; then
             value="\"${value}\""
         fi
         # Quote empty string values
