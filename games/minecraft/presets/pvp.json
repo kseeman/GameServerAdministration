@@ -7,7 +7,7 @@
     "inherits": "default.json"
   },
   "startup_commands": [
-    "gamerule locatorBar false"
+    "gamerule locator_bar false"
   ],
   "game_settings": {
     "pvp": "true",
