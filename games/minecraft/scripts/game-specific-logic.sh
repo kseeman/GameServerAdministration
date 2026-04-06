@@ -132,6 +132,9 @@ minecraft_start_server() {
     mods=$(echo "$resolved" | jq -r '.mod_config.mods // ""')
     local plugins
     plugins=$(echo "$resolved" | jq -r '.mod_config.plugins // ""')
+    # Startup commands run via RCON after server starts (e.g., gamerule changes)
+    local rcon_cmds_startup
+    rcon_cmds_startup=$(echo "$resolved" | jq -r '.startup_commands // [] | join("\n")')
 
     # Extract game_settings and convert to env var format
     local difficulty
@@ -218,6 +221,7 @@ minecraft_start_server() {
     MODRINTH_PROJECTS="$modrinth_projects" \
     MODS="$mods" \
     PLUGINS="$plugins" \
+    RCON_CMDS_STARTUP="$rcon_cmds_startup" \
     SERVER_NAME="$server_name" \
     MOTD="$motd" \
     DIFFICULTY="$difficulty" \
