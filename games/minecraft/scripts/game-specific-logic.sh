@@ -181,6 +181,7 @@ minecraft_start_server() {
     env_config=$(get_game_env_config "minecraft" "$env")
     local server_name="Minecraft Server"
     local rcon_password="minecraft"
+    local ops=""
     local restart_policy="unless-stopped"
     local memory_limit="8g"
 
@@ -191,6 +192,7 @@ minecraft_start_server() {
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
         rcon_password=$(jq -r '.server_infrastructure.rcon_password // "minecraft"' "$env_config")
+        ops=$(jq -r '.server_infrastructure.ops // ""' "$env_config")
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "8g"' "$env_config")
     fi
@@ -222,6 +224,7 @@ minecraft_start_server() {
     MODS="$mods" \
     PLUGINS="$plugins" \
     RCON_CMDS_STARTUP="$rcon_cmds_startup" \
+    OPS="$ops" \
     SERVER_NAME="$server_name" \
     MOTD="$motd" \
     DIFFICULTY="$difficulty" \

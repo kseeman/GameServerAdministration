@@ -20,7 +20,8 @@
     "base_server_name": "Vauldamir's Minecraft (Staging)",
     "server_description_suffix": "Staging Environment - Testing Only",
     "admin_password": "",
-    "rcon_password": "mc_rcon_staging_2024"
+    "rcon_password": "mc_rcon_staging_2024",
+    "ops": "Vauldamir"
   },
   "network_config": {
     "base_ports": {
