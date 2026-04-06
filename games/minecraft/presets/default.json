@@ -15,7 +15,7 @@
     "plugins": ""
   },
   "jvm_config": {
-    "memory": "4G",
+    "memory": "8G",
     "use_aikar_flags": "true"
   },
   "game_settings": {
