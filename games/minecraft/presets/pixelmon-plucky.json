@@ -1,0 +1,18 @@
+{
+  "metadata": {
+    "name": "Pixelmon Plucky",
+    "description": "PluckySwan's Pixelmon server migrated from cloud hosting, with worldgen and utility mods",
+    "version": "1.0",
+    "created": "2026-04-07T00:00:00Z",
+    "inherits": "pixelmon.json"
+  },
+  "mod_config": {
+    "modrinth_projects": "pixelmon,incendium,jei,journeymap,lithostitched,melody,nullscape,structory,structory-towers,tectonic,terralith",
+    "modrinth_allowed_version_type": "alpha",
+    "curseforge_files": "",
+    "mods": ""
+  },
+  "game_settings": {
+    "motd": "PluckySwan's Pixelmon Server"
+  }
+}

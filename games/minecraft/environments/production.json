@@ -62,6 +62,13 @@
       "default_preset": "pixelmon",
       "port_offset": 1,
       "max_players": 20
+    },
+    "pixelmon-plucky": {
+      "description": "PluckySwan's Pixelmon - migrated from cloud",
+      "default_preset": "pixelmon-plucky",
+      "port_offset": 2,
+      "max_players": 20,
+      "ops": "Vauldamir,PluckySwan"
     }
   }
 }

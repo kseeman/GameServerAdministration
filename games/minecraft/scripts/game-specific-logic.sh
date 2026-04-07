@@ -132,6 +132,8 @@ minecraft_start_server() {
     mods=$(echo "$resolved" | jq -r '.mod_config.mods // ""')
     local plugins
     plugins=$(echo "$resolved" | jq -r '.mod_config.plugins // ""')
+    local modrinth_allowed_version_type
+    modrinth_allowed_version_type=$(echo "$resolved" | jq -r '.mod_config.modrinth_allowed_version_type // ""')
     # Startup commands run via RCON after server starts (e.g., gamerule changes)
     local rcon_cmds_startup
     rcon_cmds_startup=$(echo "$resolved" | jq -r '.startup_commands // [] | join("\n")')
@@ -192,7 +194,9 @@ minecraft_start_server() {
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
         rcon_password=$(jq -r '.server_infrastructure.rcon_password // "minecraft"' "$env_config")
-        ops=$(jq -r '.server_infrastructure.ops // ""' "$env_config")
+        local instance_ops
+        instance_ops=$(jq -r ".instances.\"$instance\".ops // empty" "$env_config")
+        ops="${instance_ops:-$(jq -r '.server_infrastructure.ops // ""' "$env_config")}"
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "8g"' "$env_config")
     fi
@@ -221,6 +225,7 @@ minecraft_start_server() {
     USE_AIKAR_FLAGS="$use_aikar_flags" \
     RCON_PASSWORD="$rcon_password" \
     MODRINTH_PROJECTS="$modrinth_projects" \
+    MODRINTH_ALLOWED_VERSION_TYPE="$modrinth_allowed_version_type" \
     MODS="$mods" \
     PLUGINS="$plugins" \
     RCON_CMDS_STARTUP="$rcon_cmds_startup" \
