@@ -1,0 +1,37 @@
+{
+  "metadata": {
+    "name": "Boosted PvE",
+    "description": "Boosted rates with PvE enabled - no player vs player damage",
+    "version": "1.0",
+    "created": "2026-04-07T00:00:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "GameUserSettings": {
+      "ServerSettings": {
+        "ServerPVE": true,
+        "XPMultiplier": 3.0,
+        "TamingSpeedMultiplier": 5.0,
+        "HarvestAmountMultiplier": 3.0,
+        "HarvestHealthMultiplier": 2.0,
+        "PlayerCharacterFoodDrainMultiplier": 0.5,
+        "PlayerCharacterWaterDrainMultiplier": 0.5,
+        "DinoCharacterFoodDrainMultiplier": 0.5,
+        "ItemStackSizeMultiplier": 2.0
+      }
+    },
+    "Game": {
+      "/Script/ShooterGame.ShooterGameMode": {
+        "MatingIntervalMultiplier": 0.1,
+        "EggHatchSpeedMultiplier": 10.0,
+        "BabyMatureSpeedMultiplier": 10.0,
+        "BabyCuddleIntervalMultiplier": 0.1,
+        "BabyFoodConsumptionSpeedMultiplier": 2.0,
+        "CropGrowthSpeedMultiplier": 3.0,
+        "CraftXPMultiplier": 2.0,
+        "HarvestXPMultiplier": 2.0,
+        "KillXPMultiplier": 2.0
+      }
+    }
+  }
+}
