@@ -515,7 +515,7 @@ ark_start_server() {
     local memory_limit="16g"
     local map="TheIsland_WP"
     local rcon_enabled="TRUE"
-    local update_on_boot="FALSE"
+    local update_on_boot="TRUE"
     local mod_ids=""
     local passive_mods=""
     local server_files_volume="ark-server-files-${env}"
@@ -534,6 +534,9 @@ ark_start_server() {
         memory_limit=$(jq -r '.docker_config.memory_limit // "16g"' "$env_config")
         map=$(jq -r ".instances.\"$instance\".map // \"TheIsland_WP\"" "$env_config")
         server_files_volume=$(jq -r ".game.server_files_volume // \"ark-server-files-${env}\"" "$env_config")
+        local update_raw
+        update_raw=$(jq -r '.game.update_on_boot // true' "$env_config")
+        [[ "$update_raw" == "true" ]] && update_on_boot="TRUE" || update_on_boot="FALSE"
         # Acekorneya image uses TRUE/FALSE (uppercase)
         local rcon_raw
         rcon_raw=$(jq -r '.network_config.rcon_enabled // true' "$env_config")
