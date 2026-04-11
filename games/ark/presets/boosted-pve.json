@@ -17,7 +17,8 @@
         "PlayerCharacterFoodDrainMultiplier": 0.5,
         "PlayerCharacterWaterDrainMultiplier": 0.5,
         "DinoCharacterFoodDrainMultiplier": 0.5,
-        "ItemStackSizeMultiplier": 2.0
+        "ItemStackSizeMultiplier": 2.0,
+        "DisableCryopodFridgeRequirement": true
       }
     },
     "Game": {
