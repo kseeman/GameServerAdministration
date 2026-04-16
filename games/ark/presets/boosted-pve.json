@@ -12,13 +12,19 @@
         "ServerPVE": true,
         "XPMultiplier": 3.0,
         "TamingSpeedMultiplier": 5.0,
-        "HarvestAmountMultiplier": 3.0,
-        "HarvestHealthMultiplier": 2.0,
+        "HarvestAmountMultiplier": 5.0,
+        "HarvestHealthMultiplier": 5.0,
         "PlayerCharacterFoodDrainMultiplier": 0.5,
         "PlayerCharacterWaterDrainMultiplier": 0.5,
         "DinoCharacterFoodDrainMultiplier": 0.5,
         "ItemStackSizeMultiplier": 2.0,
-        "DisableCryopodFridgeRequirement": true
+        "DisableCryopodFridgeRequirement": true,
+        "AllowAnyoneBabyImprintCuddle": true,
+        "AllowCaveBuildingPvE": true,
+        "AllowCrateSpawnsOnTopOfStructures": true,
+        "AllowFlyerCarryPvE": true,
+        "DisableDinoDecayPvE": true,
+        "bDisableStructureDecayPvE": true
       }
     },
     "Game": {
@@ -27,11 +33,12 @@
         "EggHatchSpeedMultiplier": 10.0,
         "BabyMatureSpeedMultiplier": 10.0,
         "BabyCuddleIntervalMultiplier": 0.1,
-        "BabyFoodConsumptionSpeedMultiplier": 2.0,
+        "BabyFoodConsumptionSpeedMultiplier": 0.5,
         "CropGrowthSpeedMultiplier": 3.0,
         "CraftXPMultiplier": 2.0,
         "HarvestXPMultiplier": 2.0,
-        "KillXPMultiplier": 2.0
+        "KillXPMultiplier": 2.0,
+        "bPvEAllowTribeWar": true
       }
     }
   }
