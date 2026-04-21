@@ -1,0 +1,63 @@
+{
+  "metadata": {
+    "environment": "production",
+    "description": "Production environment configuration for Windrose servers",
+    "version": "1.0",
+    "created": "2026-04-20T00:00:00Z"
+  },
+  "game": {
+    "name": "Windrose",
+    "docker_image": "indifferentbroccoli/windrose-server-docker:latest",
+    "data_volume_path": "/home/steam/server-files",
+    "config_files": ["R5/ServerDescription.json"],
+    "backup_includes": ["R5/Saved", "R5/ServerDescription.json"],
+    "update_on_boot": true,
+    "health_check": {
+      "type": "container",
+      "port": "game_port"
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Windrose",
+    "server_description_suffix": "",
+    "admin_password": "",
+    "base_password": "",
+    "invite_code": "CHANGEME",
+    "region": "auto"
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 7777,
+      "query_port": 0,
+      "rcon_port": 0,
+      "restapi_port": 0
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": false
+  },
+  "docker_config": {
+    "restart_policy": "unless-stopped",
+    "memory_limit": "16g",
+    "cpu_limit": "4"
+  },
+  "naming_conventions": {
+    "volume_pattern": "windrose-vol-production-{instance}",
+    "container_pattern": "windrose-production-{instance}",
+    "backup_pattern": "{preset}_{instance}_production_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 48,
+    "backup_schedule": "0 */2 * * *",
+    "backup_location": "./backups/production/{instance}/"
+  },
+  "instances": {
+    "main": {
+      "description": "Main Windrose Server",
+      "default_preset": "default",
+      "port_offset": 0,
+      "max_players": 10
+    }
+  }
+}

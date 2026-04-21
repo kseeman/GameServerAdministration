@@ -1,0 +1,15 @@
+{
+  "metadata": {
+    "name": "Default",
+    "description": "Base Windrose server configuration - infrastructure only",
+    "version": "1.0",
+    "created": "2026-04-20T00:00:00Z",
+    "inherits": null
+  },
+  "game_settings": {
+    "ServerDescription": {
+      "AllowJoinInProgress": true,
+      "EnableFriendlyFire": false
+    }
+  }
+}
