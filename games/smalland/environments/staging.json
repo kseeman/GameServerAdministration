@@ -1,0 +1,66 @@
+{
+  "metadata": {
+    "environment": "staging",
+    "description": "Staging environment configuration for Smalland servers",
+    "version": "1.0",
+    "created": "2026-04-20T00:00:00Z"
+  },
+  "game": {
+    "name": "Smalland",
+    "docker_image": "smalland-server:latest",
+    "data_volume_path": "/home/steam/smalland",
+    "config_files": [],
+    "backup_includes": ["SMALLAND/Saved"],
+    "update_on_boot": true,
+    "health_check": {
+      "type": "container",
+      "port": "game_port"
+    }
+  },
+  "server_infrastructure": {
+    "base_server_name": "Vauld's Server (Staging)",
+    "server_description_suffix": "Staging Environment - Testing Only",
+    "admin_password": "",
+    "base_password": "stagingpass",
+    "eos_deployment_id": "50f2b148496e4cbbbdeefbecc2ccd6a3",
+    "eos_client_id": "xyza78918KT08TkA6emolUay8yhvAAy2",
+    "eos_client_secret": "aN2GtVw7aHb6hx66HwohNM+qktFaO3vtrLSbGdTzZWk",
+    "eos_private_key": ""
+  },
+  "network_config": {
+    "base_ports": {
+      "game_port": 13777,
+      "query_port": 0,
+      "rcon_port": 0,
+      "restapi_port": 0
+    },
+    "port_offset_per_instance": 10,
+    "public_ip": "",
+    "region": "US",
+    "rcon_enabled": false
+  },
+  "docker_config": {
+    "restart_policy": "unless-stopped",
+    "memory_limit": "4g",
+    "cpu_limit": "2"
+  },
+  "naming_conventions": {
+    "volume_pattern": "smalland-vol-staging-{instance}",
+    "container_pattern": "smalland-staging-{instance}",
+    "backup_pattern": "{preset}_{instance}_staging_{timestamp}.tar.gz"
+  },
+  "backup_config": {
+    "backup_retention": 5,
+    "backup_schedule": "0 */4 * * *",
+    "backup_location": "./backups/staging/{instance}/"
+  },
+  "instances": {
+    "test": {
+      "description": "Testing server instance",
+      "default_preset": "default",
+      "port_offset": 0,
+      "max_players": 4,
+      "world_name": "StagingShroud"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "metadata": {
+    "name": "Default",
+    "description": "Vanilla Smalland settings - all modifiers at 100%",
+    "version": "1.0",
+    "created": "2026-04-20T00:00:00Z",
+    "inherits": null
+  },
+  "game_settings": {
+    "friendly_fire": 0,
+    "peaceful_mode": 0,
+    "keep_inventory": 0,
+    "no_deterioration": 0,
+    "tamed_creatures_immortal": 0,
+    "private": 0,
+    "crossplay": 1,
+    "length_of_day_seconds": 1800,
+    "length_of_season_seconds": 10800,
+    "creature_health_modifier": 100,
+    "creature_damage_modifier": 100,
+    "creature_respawn_rate_modifier": 100,
+    "resource_respawn_rate_modifier": 100,
+    "creature_spawn_chance_modifier": 100,
+    "crafting_time_modifier": 100,
+    "crafting_fuel_modifier": 100,
+    "storm_frequency_modifier": 100,
+    "nourishment_loss_modifier": 100,
+    "fall_damage_modifier": 100
+  }
+}
