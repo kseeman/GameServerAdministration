@@ -707,10 +707,17 @@ ark_stop_server() {
         docker rm "$config_container" 2>/dev/null || true
     fi
 
-    # Verify the container is actually gone
+    # Compose down only stops containers tracked under the -p project. If the
+    # container was created outside this project (e.g., older script version or
+    # manual `docker compose up`), it survives. Fall back to direct stop/rm.
     if container_exists "$container_name"; then
-        log_warning "Container $container_name is still running after stop attempt"
-        log_error "Failed to stop ARK SA server: $container_name"
+        log_warning "Container $container_name not cleaned up by compose down; falling back to docker stop/rm"
+        docker stop "$container_name" 2>/dev/null || true
+        docker rm "$container_name" 2>/dev/null || true
+    fi
+
+    if container_exists "$container_name"; then
+        log_error "Container $container_name still exists after stop attempt"
         return 1
     fi
 

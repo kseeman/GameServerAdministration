@@ -399,13 +399,21 @@ palworld_stop_server() {
         fi
     fi
 
-    if [[ $? -eq 0 ]]; then
-        log_success "Palworld server stopped: $container_name"
-        return 0
-    else
-        log_error "Failed to stop Palworld server: $container_name"
+    # Compose down only stops containers tracked under the -p project. If the
+    # container was created outside this project, fall back to direct stop/rm.
+    if container_exists "$container_name"; then
+        log_warning "Container $container_name not cleaned up by compose down; falling back to docker stop/rm"
+        docker stop "$container_name" 2>/dev/null || true
+        docker rm "$container_name" 2>/dev/null || true
+    fi
+
+    if container_exists "$container_name"; then
+        log_error "Container $container_name still exists after stop attempt"
         return 1
     fi
+
+    log_success "Palworld server stopped: $container_name"
+    return 0
 }
 
 palworld_restart_server() {

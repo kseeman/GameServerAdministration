@@ -233,23 +233,30 @@ windrose_stop_server() {
     container_name=$(get_container_name "windrose" "$instance" "$env")
     local compose_file="${REPO_ROOT}/docker-compose-windrose-${env}-${instance}.yml"
 
-    local stop_rc=0
     if [[ -f "$compose_file" ]]; then
-        docker compose -p "$container_name" -f "$compose_file" down || stop_rc=$?
+        docker compose -p "$container_name" -f "$compose_file" down
     else
         if container_exists "$container_name"; then
-            docker stop "$container_name" 2>/dev/null || stop_rc=$?
-            docker rm "$container_name" 2>/dev/null || true
+            docker stop "$container_name" 2>/dev/null
+            docker rm "$container_name" 2>/dev/null
         fi
     fi
 
-    if [[ $stop_rc -eq 0 ]]; then
-        log_success "Windrose server stopped: $container_name"
-        return 0
-    else
-        log_error "Failed to stop Windrose server: $container_name"
+    # Compose down only stops containers tracked under the -p project. If the
+    # container was created outside this project, fall back to direct stop/rm.
+    if container_exists "$container_name"; then
+        log_warning "Container $container_name not cleaned up by compose down; falling back to docker stop/rm"
+        docker stop "$container_name" 2>/dev/null || true
+        docker rm "$container_name" 2>/dev/null || true
+    fi
+
+    if container_exists "$container_name"; then
+        log_error "Container $container_name still exists after stop attempt"
         return 1
     fi
+
+    log_success "Windrose server stopped: $container_name"
+    return 0
 }
 
 windrose_health_check() {
