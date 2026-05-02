@@ -62,6 +62,15 @@
       "max_players": 8,
       "mod_ids": "",
       "passive_mods": ""
+    },
+    "aberration": {
+      "description": "Aberration",
+      "map": "Aberration_WP",
+      "default_preset": "default",
+      "port_offset": 1,
+      "max_players": 30,
+      "mod_ids": "",
+      "passive_mods": ""
     }
   }
 }

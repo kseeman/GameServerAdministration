@@ -24,7 +24,8 @@
         "AllowCrateSpawnsOnTopOfStructures": true,
         "AllowFlyerCarryPvE": true,
         "DisableDinoDecayPvE": true,
-        "bDisableStructureDecayPvE": true
+        "bDisableStructureDecayPvE": true,
+	      "DisableCryopodEnemyCheck": true
       }
     },
     "Game": {
