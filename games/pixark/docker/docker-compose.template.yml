@@ -1,0 +1,56 @@
+services:
+  pixark-server:
+    image: pixark-server:latest
+    container_name: ${CONTAINER_NAME}
+    stop_grace_period: 30s
+    stdin_open: true
+    tty: true
+    ports:
+      - "${GAME_PORT}:${GAME_PORT}/udp"
+      - "${QUERY_PORT}:${QUERY_PORT}/udp"
+      - "${RCON_PORT}:${RCON_PORT}/tcp"
+      - "${CUBE_PORT}:${CUBE_PORT}/tcp"
+    volumes:
+      - pixark_install:/home/steam/PixARK-dedicated
+      - pixark_save_data:/home/steam/PixARK-dedicated/ShooterGame/Saved
+    restart: ${RESTART_POLICY}
+    environment:
+      - UPDATE_ON_START=${UPDATE_ON_START}
+      - MAP=${MAP}
+      - SESSIONNAME=${SESSION_NAME}
+      - SERVERPASSWORD=${SERVER_PASSWORD}
+      - SERVERADMINPASSWORD=${ADMIN_PASSWORD}
+      - MAXPLAYERS=${MAX_PLAYERS}
+      - PORT=${GAME_PORT}
+      - QUERYPORT=${QUERY_PORT}
+      - RCONPORT=${RCON_PORT}
+      - CUBEPORT=${CUBE_PORT}
+      - RCONENABLED=${RCON_ENABLED}
+      - CULTUREFORCOOKING=${CULTURE}
+      - CUBEWORLD=${CUBE_WORLD}
+      - MAPSEED=${MAP_SEED}
+      - CLUSTERID=${CLUSTER_ID}
+      - ALTSAVEDIRECTORYNAME=${ALT_SAVE_DIR}
+      - ADDITIONAL_ARGS=${ADDITIONAL_ARGS}
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT}
+
+  pixark-sftp:
+    image: atmoz/sftp:latest
+    container_name: ${CONTAINER_NAME}-sftp
+    restart: ${RESTART_POLICY}
+    ports:
+      - "${SFT_PORT}:22"
+    volumes:
+      - pixark_save_data:/home/${SFT_USER}/saved
+    command: ${SFT_USER}:${SFT_PASS}:1001
+
+volumes:
+  pixark_install:
+    external: true
+    name: ${INSTALL_VOLUME_NAME}
+  pixark_save_data:
+    external: true
+    name: ${VOLUME_NAME}

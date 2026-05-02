@@ -1,43 +1,42 @@
 {
   "metadata": {
     "environment": "staging",
-    "description": "Staging environment configuration for Smalland servers",
+    "description": "Staging environment configuration for PixARK servers",
     "version": "1.0",
     "created": "2026-04-20T00:00:00Z"
   },
   "game": {
-    "name": "Smalland",
-    "docker_image": "smalland-server:latest",
-    "data_volume_path": "/home/steam/smalland",
-    "config_files": [],
-    "backup_includes": ["SMALLAND/Saved"],
-    "update_on_boot": true,
+    "name": "PixARK",
+    "docker_image": "pixark-server:latest",
+    "data_volume_path": "/home/steam/PixARK-dedicated/ShooterGame/Saved",
+    "config_files": ["GameUserSettings.ini", "Game.ini"],
+    "backup_includes": ["."],
+    "update_on_boot": false,
     "health_check": {
       "type": "container",
       "port": "game_port"
     }
   },
   "server_infrastructure": {
-    "base_server_name": "Vauld's Server (Staging)",
+    "base_server_name": "Vauld's PixARK (Staging)",
     "server_description_suffix": "Staging Environment - Testing Only",
     "admin_password": "",
     "base_password": "",
-    "eos_deployment_id": "50f2b148496e4cbbbdeefbecc2ccd6a3",
-    "eos_client_id": "xyza78918KT08TkA6emolUay8yhvAAy2",
-    "eos_client_secret": "",
-    "eos_private_key": ""
+    "sft_user": "pixark",
+    "sft_pass": "",
+    "sft_port_base": 2322
   },
   "network_config": {
     "base_ports": {
-      "game_port": 13777,
-      "query_port": 0,
-      "rcon_port": 0,
-      "restapi_port": 0
+      "game_port": 47015,
+      "query_port": 47016,
+      "rcon_port": 47017,
+      "restapi_port": 47018
     },
     "port_offset_per_instance": 10,
     "public_ip": "",
     "region": "US",
-    "rcon_enabled": false
+    "rcon_enabled": true
   },
   "docker_config": {
     "restart_policy": "unless-stopped",
@@ -45,8 +44,8 @@
     "cpu_limit": "2"
   },
   "naming_conventions": {
-    "volume_pattern": "smalland-vol-staging-{instance}",
-    "container_pattern": "smalland-staging-{instance}",
+    "volume_pattern": "pixark-vol-staging-{instance}",
+    "container_pattern": "pixark-staging-{instance}",
     "backup_pattern": "{preset}_{instance}_staging_{timestamp}.tar.gz"
   },
   "backup_config": {
@@ -60,7 +59,11 @@
       "default_preset": "default",
       "port_offset": 0,
       "max_players": 4,
-      "world_name": "StagingShroud"
+      "map": "CubeWorld_Light",
+      "cube_world": "cubeworld",
+      "map_seed": "",
+      "alt_save_dir": "",
+      "cluster_id": ""
     }
   }
 }

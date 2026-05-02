@@ -119,8 +119,10 @@ windrose_start_server() {
     env_config=$(get_game_env_config "windrose" "$env")
     local base_name="Windrose"
     local instance_desc="$instance"
-    local invite_code=""
-    local password=""
+    local invite_code
+    invite_code=$(get_secret "windrose" "$env" "invite_code") || return 1
+    local password
+    password=$(get_secret "windrose" "$env" "base_password") || return 1
     local max_players=10
     local region="auto"
     local restart_policy="unless-stopped"
@@ -130,8 +132,6 @@ windrose_start_server() {
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         base_name=$(jq -r '.server_infrastructure.base_server_name // "Windrose"' "$env_config")
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
-        invite_code=$(jq -r '.server_infrastructure.invite_code // ""' "$env_config")
-        password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         max_players=$(jq -r ".instances.\"$instance\".max_players // 10" "$env_config")
         region=$(jq -r '.server_infrastructure.region // "auto"' "$env_config")
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")

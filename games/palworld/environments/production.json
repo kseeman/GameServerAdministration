@@ -21,8 +21,8 @@
   "server_infrastructure": {
     "base_server_name": "Vauldamir's",
     "server_description_suffix": "Official Server",
-    "admin_password": "admin_prod_secure_2024",
-    "base_password": "letsride"
+    "admin_password": "",
+    "base_password": ""
   },
   "network_config": {
     "base_ports": {

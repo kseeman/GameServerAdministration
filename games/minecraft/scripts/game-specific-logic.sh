@@ -182,7 +182,8 @@ minecraft_start_server() {
     local env_config
     env_config=$(get_game_env_config "minecraft" "$env")
     local server_name="Minecraft Server"
-    local rcon_password="minecraft"
+    local rcon_password
+    rcon_password=$(get_secret "minecraft" "$env" "rcon_password") || return 1
     local ops=""
     local restart_policy="unless-stopped"
     local memory_limit="8g"
@@ -193,7 +194,6 @@ minecraft_start_server() {
         local instance_desc
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
-        rcon_password=$(jq -r '.server_infrastructure.rcon_password // "minecraft"' "$env_config")
         local instance_ops
         instance_ops=$(jq -r ".instances.\"$instance\".ops // empty" "$env_config")
         ops="${instance_ops:-$(jq -r '.server_infrastructure.ops // ""' "$env_config")}"

@@ -103,8 +103,10 @@ palworld_generate_settings_ini() {
         local instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         local server_name="$base_name"
         [[ -n "$instance_desc" ]] && server_name="${base_name} - ${instance_desc}"
-        local admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config")
-        local server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
+        local admin_password
+        admin_password=$(get_secret "palworld" "$env" "admin_password") || return 1
+        local server_password
+        server_password=$(get_secret "palworld" "$env" "base_password") || return 1
         local server_description=$(jq -r '.server_infrastructure.server_description_suffix // ""' "$env_config")
         local max_players=$(jq -r ".instances.\"$instance\".max_players // 32" "$env_config")
         local rcon_enabled=$(jq -r '.network_config.rcon_enabled // false' "$env_config")
@@ -254,8 +256,10 @@ palworld_start_server() {
     # Get server infrastructure settings from environment config
     local env_config=$(get_game_env_config "palworld" "$env")
     local server_name="Palworld-${instance}"
-    local admin_password="adminpass123"
-    local server_password=""
+    local admin_password
+    admin_password=$(get_secret "palworld" "$env" "admin_password") || return 1
+    local server_password
+    server_password=$(get_secret "palworld" "$env" "base_password") || return 1
     local max_players=32
     local restart_policy="unless-stopped"
     local memory_limit="8G"
@@ -264,8 +268,6 @@ palworld_start_server() {
         local base_name=$(jq -r '.server_infrastructure.base_server_name // "Palworld"' "$env_config")
         local instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
-        admin_password=$(jq -r '.server_infrastructure.admin_password // "adminpass123"' "$env_config")
-        server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         max_players=$(jq -r ".instances.\"$instance\".max_players // 32" "$env_config")
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "8g"' "$env_config")
@@ -479,11 +481,8 @@ palworld_health_check() {
 
     # Try REST API health check if available
     if ss -tuln | grep -q ":$restapi_port "; then
-        local env_config=$(get_game_env_config "palworld" "$env")
-        local admin_password="adminpass123"
-        if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
-            admin_password=$(jq -r '.server_infrastructure.admin_password // "adminpass123"' "$env_config")
-        fi
+        local admin_password
+        admin_password=$(get_secret "palworld" "$env" "admin_password") || return 1
 
         if curl -s -f -u admin:"$admin_password" "http://localhost:${restapi_port}/v1/api/info" >/dev/null 2>&1; then
             log_success "Palworld server health check passed: REST API responsive"
@@ -591,8 +590,9 @@ palworld_backup_data() {
         local ports=($(get_port_assignments "palworld" "$instance" "$env"))
         local restapi_port="${ports[3]}"
 
-        # Get admin password from container environment
-        local admin_password=$(docker exec "$container_name" printenv ADMIN_PASSWORD 2>/dev/null || echo "adminpass123")
+        # Get admin password from the host environment (sourced from .env)
+        local admin_password
+        admin_password=$(get_secret "palworld" "$env" "admin_password") || return 1
 
         # Trigger save via REST API
         curl -s -X POST -H "Content-Length: 0" -u admin:"$admin_password" "http://localhost:$restapi_port/v1/api/save" 2>/dev/null
@@ -799,11 +799,8 @@ palworld_announce() {
     local ports=($(get_port_assignments "palworld" "$instance" "$env"))
     local restapi_port="${ports[3]}"
 
-    local env_config=$(get_game_env_config "palworld" "$env")
-    local admin_password="adminpass123"
-    if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
-        admin_password=$(jq -r '.server_infrastructure.admin_password // "adminpass123"' "$env_config")
-    fi
+    local admin_password
+    admin_password=$(get_secret "palworld" "$env" "admin_password") || return 1
 
     curl -s -X POST \
         -H "Content-Type: application/json" \

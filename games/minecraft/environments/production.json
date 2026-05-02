@@ -20,7 +20,7 @@
     "base_server_name": "Vauldamir's Minecraft",
     "server_description_suffix": "",
     "admin_password": "",
-    "rcon_password": "mc_rcon_prod_2024",
+    "rcon_password": "",
     "ops": "Vauldamir"
   },
   "network_config": {

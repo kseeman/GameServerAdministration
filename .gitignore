@@ -5,3 +5,6 @@ backups/
 docker-compose-*.yml
 .state/
 config/
+
+# Local secrets — never commit. See .env.example for the expected keys.
+.env

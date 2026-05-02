@@ -105,8 +105,10 @@ ark_generate_game_user_settings_ini() {
     env_config=$(get_game_env_config "ark" "$env")
 
     local server_name="ARK Server"
-    local admin_password=""
-    local server_password=""
+    local admin_password
+    admin_password=$(get_secret "ark" "$env" "admin_password") || return 1
+    local server_password
+    server_password=$(get_secret "ark" "$env" "base_password") || return 1
     local max_players=70
     local rcon_enabled="true"
     local ports
@@ -119,8 +121,6 @@ ark_generate_game_user_settings_ini() {
         local instance_desc
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
-        admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config")
-        server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         max_players=$(jq -r ".instances.\"$instance\".max_players // 70" "$env_config")
         rcon_enabled=$(jq -r '.network_config.rcon_enabled // true' "$env_config")
     fi
@@ -508,8 +508,10 @@ ark_start_server() {
     local env_config
     env_config=$(get_game_env_config "ark" "$env")
     local server_name="ARK-${instance}"
-    local admin_password=""
-    local server_password=""
+    local admin_password
+    admin_password=$(get_secret "ark" "$env" "admin_password") || return 1
+    local server_password
+    server_password=$(get_secret "ark" "$env" "base_password") || return 1
     local max_players=70
     local restart_policy="unless-stopped"
     local memory_limit="16g"
@@ -527,8 +529,6 @@ ark_start_server() {
         local instance_desc
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
         server_name="${base_name} - ${instance_desc}"
-        admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config")
-        server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         max_players=$(jq -r ".instances.\"$instance\".max_players // 70" "$env_config")
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "16g"' "$env_config")
@@ -1110,10 +1110,8 @@ ark_rcon_command() {
     local container_name
     container_name=$(get_container_name "ark" "$instance" "$env")
 
-    local env_config
-    env_config=$(get_game_env_config "ark" "$env")
     local admin_password
-    admin_password=$(jq -r '.server_infrastructure.admin_password // ""' "$env_config" 2>/dev/null || echo "")
+    admin_password=$(get_secret "ark" "$env" "admin_password") || return 1
 
     # Use rcon-cli inside the container (provided by Acekorneya image)
     local ports

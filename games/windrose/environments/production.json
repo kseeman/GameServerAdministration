@@ -22,7 +22,7 @@
     "server_description_suffix": "",
     "admin_password": "",
     "base_password": "",
-    "invite_code": "CHANGEME",
+    "invite_code": "",
     "region": "auto"
   },
   "network_config": {

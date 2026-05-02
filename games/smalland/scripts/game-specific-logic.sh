@@ -159,11 +159,14 @@ smalland_start_server() {
     env_config=$(get_game_env_config "smalland" "$env")
     local base_name="Smalland Server"
     local instance_desc="$instance"
-    local server_password=""
+    local server_password
+    server_password=$(get_secret "smalland" "$env" "base_password") || return 1
     local eos_deployment_id=""
     local eos_client_id=""
-    local eos_client_secret=""
-    local eos_private_key=""
+    local eos_client_secret
+    eos_client_secret=$(get_secret "smalland" "$env" "eos_client_secret") || return 1
+    local eos_private_key
+    eos_private_key=$(get_secret "smalland" "$env" "eos_private_key") || return 1
     local world_name="World"
     local restart_policy="unless-stopped"
     local memory_limit="8g"
@@ -172,11 +175,8 @@ smalland_start_server() {
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         base_name=$(jq -r '.server_infrastructure.base_server_name // "Smalland Server"' "$env_config")
         instance_desc=$(jq -r ".instances.\"$instance\".description // \"$instance\"" "$env_config")
-        server_password=$(jq -r '.server_infrastructure.base_password // ""' "$env_config")
         eos_deployment_id=$(jq -r '.server_infrastructure.eos_deployment_id // ""' "$env_config")
         eos_client_id=$(jq -r '.server_infrastructure.eos_client_id // ""' "$env_config")
-        eos_client_secret=$(jq -r '.server_infrastructure.eos_client_secret // ""' "$env_config")
-        eos_private_key=$(jq -r '.server_infrastructure.eos_private_key // ""' "$env_config")
         world_name=$(jq -r ".instances.\"$instance\".world_name // \"World\"" "$env_config")
         restart_policy=$(jq -r '.docker_config.restart_policy // "unless-stopped"' "$env_config")
         memory_limit=$(jq -r '.docker_config.memory_limit // "8g"' "$env_config")

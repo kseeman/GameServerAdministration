@@ -22,7 +22,7 @@
     "server_description_suffix": "Staging Environment - Testing Only",
     "admin_password": "",
     "base_password": "",
-    "invite_code": "STAGE1",
+    "invite_code": "",
     "region": "auto"
   },
   "network_config": {

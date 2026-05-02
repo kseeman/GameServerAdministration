@@ -21,8 +21,8 @@
   "server_infrastructure": {
     "base_server_name": "Vauldamir's Server (Staging)",
     "server_description_suffix": "Staging Environment - Testing Only",
-    "admin_password": "admin_staging_2024",
-    "base_password": "letsride-staging"
+    "admin_password": "",
+    "base_password": ""
   },
   "network_config": {
     "base_ports": {

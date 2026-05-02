@@ -14,6 +14,16 @@ NC='\033[0m' # No Color
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+# Load secrets from .env at repo root if present. Values here populate the
+# process environment so get_secret (below) can find them. The file is
+# gitignored; see .env.example for the expected variable names.
+if [[ -f "${REPO_ROOT}/.env" ]]; then
+    set -a
+    # shellcheck disable=SC1091
+    source "${REPO_ROOT}/.env"
+    set +a
+fi
+
 # Logging functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
@@ -37,6 +47,52 @@ get_game_env_config() {
     local game="$1"
     local env="$2"
     echo "${REPO_ROOT}/games/${game}/environments/${env}.json"
+}
+
+# Build the env var name for a secret: e.g. (palworld, production, admin_password)
+# -> PALWORLD_PRODUCTION_ADMIN_PASSWORD. Game/field may contain hyphens;
+# those become underscores so the name is a valid shell identifier.
+_secret_var_name() {
+    local game="$1"
+    local env="$2"
+    local field="$3"
+    local name="${game}_${env}_${field}"
+    name="${name//-/_}"
+    # Uppercase
+    echo "${name^^}"
+}
+
+# Fetch a secret from the environment. Prints the value on stdout.
+#
+# Strict: the env var MUST be set. An explicitly empty value is allowed
+# (e.g. PALWORLD_STAGING_BASE_PASSWORD= means "no server password"); a
+# missing var causes the script to exit with a clear error pointing the
+# operator at the variable they need to define in .env.
+#
+# Usage: value=$(get_secret palworld production admin_password) || exit 1
+get_secret() {
+    local game="$1"
+    local env="$2"
+    local field="$3"
+
+    if [[ -z "$game" || -z "$env" || -z "$field" ]]; then
+        log_error "get_secret requires game, env, and field arguments"
+        return 1
+    fi
+
+    local var_name
+    var_name=$(_secret_var_name "$game" "$env" "$field")
+
+    # Use indirect expansion with the +x test to distinguish "unset" from
+    # "set-but-empty". We support both; missing is the failure case.
+    if [[ -z "${!var_name+x}" ]]; then
+        log_error "Required secret not set: \$${var_name}"
+        log_error "Define it in ${REPO_ROOT}/.env (see .env.example)."
+        log_error "For ${game}/${env}, the field '${field}' must be provided via \$${var_name}."
+        return 1
+    fi
+
+    printf '%s' "${!var_name}"
 }
 
 # Environment validation
@@ -495,3 +551,4 @@ export -f volume_exists container_exists container_running
 export -f get_port_assignments check_port_availability
 export -f safety_confirmation validate_naming_convention
 export -f run_safety_checklist create_emergency_backup
+export -f _secret_var_name get_secret

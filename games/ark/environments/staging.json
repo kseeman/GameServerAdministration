@@ -23,7 +23,7 @@
   "server_infrastructure": {
     "base_server_name": "Vauldamir's ARK (Staging)",
     "server_description_suffix": "Staging Environment - Testing Only",
-    "admin_password": "admin_ark_staging_2024",
+    "admin_password": "",
     "base_password": ""
   },
   "network_config": {

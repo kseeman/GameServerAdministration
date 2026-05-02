@@ -23,8 +23,8 @@
   "server_infrastructure": {
     "base_server_name": "Vauldamir's ARK",
     "server_description_suffix": "Official Server",
-    "admin_password": "admin_ark_prod_2024",
-    "base_password": "letsride"
+    "admin_password": "",
+    "base_password": ""
   },
   "network_config": {
     "base_ports": {
