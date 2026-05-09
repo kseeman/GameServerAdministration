@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Dockerized game server management platform with a plugin architecture. Currently supports Palworld, designed to be game-agnostic. Manages multiple concurrent server instances across staging and production environments with Docker containers, preset-based configuration, and automated backup/restore.
+Dockerized game server management platform with a plugin architecture. Manages multiple concurrent server instances across staging and production environments with Docker containers, preset-based configuration, and automated backup/restore.
+
+Currently supports: **Palworld**, **ARK Survival Ascended**, **Minecraft**, **PixARK**, **Smalland**, **Windrose**. Each game directory is self-contained — see `games/<game>/README.md` (where present) for game-specific design notes.
 
 ## Architecture
 
@@ -22,7 +24,12 @@ Dockerized game server management platform with a plugin architecture. Currently
 
 ## Config Swap System
 
-Config swapping changes a running server's game settings (e.g., switching from casual to tournament mode) while preserving world data.
+Config swapping changes a running server's game settings (e.g., switching from casual to tournament mode) while preserving world data. The mechanism is **game-specific** — each plugin decides whether swaps are cold (stop+restart) or hot (live), and the implementation differs:
+
+- **Palworld** — cold swap only. See "Palworld config swap" below.
+- **ARK** — tries hot swap first (write to nginx-served dynamic config volume + RCON `ForceUpdateDynamicConfig`); falls back to cold if any changed key is outside the hot-swappable allowlist (see `ARK_HOT_SWAPPABLE_SETTINGS` in `games/ark/scripts/game-specific-logic.sh`). Detailed in `games/ark/README.md`.
+
+### Palworld config swap
 
 **How it works**: The Palworld server reads `PalWorldSettings.ini` on startup and caches settings in memory. You cannot change settings while the server is running — changes are overwritten on shutdown. The flow is:
 1. Stop the container (`docker compose down`)
@@ -38,6 +45,8 @@ Config swapping changes a running server's game settings (e.g., switching from c
 **State tracking**: After a successful start or config-swap, the active preset name is written to `.state/palworld-<env>-<instance>.preset`. This is read by `scheduled-config-swap.sh` to detect the current preset and by `palworld_backup_data()` to tag backup metadata.
 
 ## Backup and Restore
+
+Backup/restore is implemented per-game (`<game>_backup_data`, `<game>_restore_data`) — each plugin decides what to capture. The shared CLI in `server-manager.sh` only orchestrates. Notes here describe Palworld; for ARK details (full `Saved/` capture per instance, plus a separate per-env cluster-volume backup at `backups/{env}/_cluster/` driven by the optional `<game>_backup_cluster` hook in `scheduled-backup.sh`) see `games/ark/README.md`.
 
 **Regular backups** (`palworld_backup_data`): Game-specific, only captures `SaveGames/` and `Config/` from the volume (not the full server installation). Triggers a game save via REST API before copying if the server is running. Produces a `.tar.gz` with a `.meta.json` sidecar containing world ID, active preset, ports, and timestamps.
 
@@ -67,13 +76,22 @@ bash -n scripts/core/server-manager.sh
 find games/ -name "*.json" -exec jq empty {} \;
 ```
 
-## CI/CD
+## Deployment
 
-- **PR validation** (`pr-validation.yml`): Runs shellcheck, JSON validation, and bash syntax checks on PRs to `main`.
-- **Staging deploy** (`deploy-staging.yml`): Triggers on push to `develop` branch. SSHs to staging server, deploys to `/opt/gameserver-admin`.
-- **Production deploy** (`deploy-production.yml`): Triggers on push to `main`.
+No CI/CD. Workflow is intentionally manual so unrelated code changes never risk restarting live game servers:
 
-Deployments install to `/opt/gameserver-admin` on the target server, owned by `root:gameserver`.
+1. Push changes to the `main` branch on the remote.
+2. SSH to the server, `cd ~/GameServerAdministration`, `git pull`.
+3. Run any required scripts manually (`server-manager.sh stop`/`start`, `ark-cluster-restore.sh`, etc.).
+
+Plugin/script edits (game-specific-logic.sh, scheduled-backup.sh, env JSON) take effect on the next operation that reads them — no restart needed. Compose-template changes only take effect on the next `start` for an instance, since the per-instance compose file is regenerated each start.
+
+Pre-push sanity (run locally):
+
+```bash
+find games/ -name "*.json" -exec jq empty {} \;
+bash -n scripts/**/*.sh games/*/scripts/*.sh
+```
 
 ## Key Conventions
 

@@ -2,7 +2,18 @@
 
 A Dockerized game server management platform with a plugin architecture for running multiple concurrent game server instances across staging and production environments. Built around Docker containers, preset-based configuration, automated backup/restore, and live config swapping.
 
-Currently supports **Palworld**. Designed to be game-agnostic — adding a new game requires only a plugin script and configuration files.
+**Supported games:**
+
+| Game | Image | Key Features |
+|------|-------|--------------|
+| Palworld | `thijsvanloef/palworld-server-docker` | Cold config swap, REST API health, world-ID-aware backups |
+| ARK Survival Ascended | `acekorneya/asa_server` | **Cross-server clustering**, hot config swap via dynamic config + RCON |
+| Minecraft | `itzg/minecraft-server` | RCON-driven |
+| PixARK | `pixark-server` (local build) | — |
+| Smalland | `smalland-server` (local build) | — |
+| Windrose | `indifferentbroccoli/windrose-server-docker` | — |
+
+Designed to be game-agnostic — adding a new game requires only a plugin script and configuration files. See per-game docs in `games/<game>/README.md` for game-specific setup and design.
 
 ## Prerequisites
 
@@ -16,6 +27,9 @@ Currently supports **Palworld**. Designed to be game-agnostic — adding a new g
 ```bash
 # Start a Palworld server with the casual preset
 ./scripts/core/server-manager.sh start --game palworld --instance test --env staging --preset casual --force
+
+# Start an ARK SA staging instance
+./scripts/core/server-manager.sh start --game ark --instance test --env staging --preset default
 
 # Check server status
 ./scripts/core/server-manager.sh status --game palworld --instance test --env staging
@@ -35,19 +49,17 @@ Currently supports **Palworld**. Designed to be game-agnostic — adding a new g
 ### Project Structure
 
 ```
-games/palworld/                     # All Palworld-specific files
+games/<game>/                       # Per-game files (one directory per supported game)
+  README.md                         # Game-specific setup and design (where present)
   docker/
     docker-compose.template.yml     # Compose template (envsubst'd at runtime)
-    Dockerfile                      # Custom image build (alternative to thijsvanloef)
+    Dockerfile                      # Custom image build (when the game uses a local image)
   environments/
-    production.json                 # Production: ports, instances, docker limits, passwords
+    production.json                 # Production: ports, instances, docker limits, secrets refs
     staging.json                    # Staging: same structure, different values
   presets/
     default.json                    # Base game settings (all presets inherit from this)
-    casual.json                     # Relaxed settings (inherits default)
-    hardcore.json                   # Maximum difficulty (inherits default)
-    tournament.json                 # PvP competitive (inherits default)
-    tournament-pve.json             # PvE competitive (inherits tournament)
+    <other>.json                    # Game-specific presets (inherit from default only)
   scripts/
     game-specific-logic.sh          # Plugin: start, stop, backup, restore, config-swap
 
@@ -113,10 +125,15 @@ Each game has a per-environment JSON config at `games/<game>/environments/<env>.
 - **backup_config** — retention count and cron schedule
 - **instances** — available instances with default preset, port offset, and max players
 
-Port allocation:
-- Production base ports: game=8215, query=27019, rcon=25577, restapi=9999
-- Staging base ports: game=9215, query=28019, rcon=26577, restapi=10999
-- Each instance adds `port_offset * port_offset_per_instance` to the base
+Port allocation: each game defines its own `network_config.base_ports` and `port_offset_per_instance` per environment. Each instance's effective port = `base_port + (instance.port_offset * port_offset_per_instance)`. Concrete values per game live in `games/<game>/environments/<env>.json`. Examples:
+
+| Game | Env | Game | Query | RCON | REST API |
+|------|-----|-----:|------:|-----:|---------:|
+| Palworld | production | 8215 | 27019 | 25577 | 9999 |
+| Palworld | staging | 9215 | 28019 | 26577 | 10999 |
+| ARK | production | 7790 | 27030 | 27050 | — |
+| ARK | staging | 17777 | 37015 | 37020 | — |
+| Minecraft | production | 25565 | 19132 | 25700 | — |
 
 ## Server Manager CLI Reference
 
@@ -151,9 +168,16 @@ Port allocation:
 
 ## Config Swap
 
-Config swapping changes a running server's game settings while preserving world data.
+Config swapping changes a running server's game settings while preserving world data. The mechanism is game-specific — what works for Palworld doesn't apply to ARK and vice versa.
 
-### How It Works
+| Game | Mechanism | Cost |
+|------|-----------|------|
+| Palworld | Cold swap: stop → write `PalWorldSettings.ini` → restart with `DISABLE_GENERATE_SETTINGS=true` | Brief downtime |
+| ARK | Hot swap when all changed keys are in the [hot-swappable allowlist](games/ark/scripts/game-specific-logic.sh); writes ini to a sidecar nginx volume + RCON `ForceUpdateDynamicConfig`. Falls back to cold swap otherwise | None for hot path |
+
+The Palworld flow is described below; ARK details live in `games/ark/README.md`.
+
+### Palworld config swap
 
 The Palworld server reads `PalWorldSettings.ini` on startup and caches all settings in memory. Changes to the ini file while the server is running are overwritten when the server shuts down. Additionally, the server runs as a service inside the container — stopping the game process causes it to restart immediately.
 
@@ -194,7 +218,9 @@ Keys in `game_settings` must use the exact PalWorldSettings.ini key names (e.g.,
 
 Server infrastructure settings (ServerName, passwords, ports, max players) are not set in presets — they come from the environment config (`games/<game>/environments/<env>.json`).
 
-Available presets:
+Each game ships its own preset library at `games/<game>/presets/`. Examples:
+
+**Palworld**
 | Preset | Description |
 |--------|-------------|
 | `default` | Base configuration, all standard rates |
@@ -202,6 +228,13 @@ Available presets:
 | `hardcore` | Maximum difficulty: reduced rates, no fast travel |
 | `tournament` | Competitive PvP: player damage, guild limits, tech bans |
 | `tournament-pve` | Tournament rules but with PvP disabled |
+
+**ARK**
+| Preset | Description |
+|--------|-------------|
+| `default` | Base configuration, official rates, transfers enabled |
+| `boosted` | Increased XP/taming/harvest rates |
+| `boosted-pve` | Boosted rates, PvP disabled |
 
 ### Scheduled Config Swap
 
@@ -224,7 +257,11 @@ Schedule configuration lives in `config/schedule-config.json`.
 
 ### Creating Backups
 
-Backups capture `SaveGames/` and `Config/` from the Docker volume (not the full server installation). If the server is running, a game save is triggered via the REST API before copying.
+Backups are game-specific in scope — each plugin decides what to capture. Universally: only save data and config are captured, not the full server installation. The plugin triggers a save before copying when the server supports one (Palworld: REST API; ARK: RCON `SaveWorld`).
+
+Per-game capture scope:
+- **Palworld**: `SaveGames/` + `Config/` from the volume
+- **ARK**: full `ShooterGame/Saved/` per instance, plus a separate per-env cluster-volume backup at `backups/{env}/_cluster/` (see `games/ark/README.md`)
 
 ```bash
 ./scripts/core/server-manager.sh backup \
@@ -238,7 +275,7 @@ Backups are stored at `backups/<env>/<instance>/` as `.tar.gz` files with `.meta
 
 ### Restoring from Backup
 
-Restore replaces the volume's `SaveGames/` and `Config/` directories with the backup contents. The server **must be stopped** before restoring.
+Restore wipes the per-instance save volume and replaces it with the backup contents. The server **must be stopped** before restoring. (For ARK, instance restore does *not* touch the shared cluster volume; cluster restore is a separate, env-scoped operation via `scripts/automation/ark-cluster-restore.sh`.)
 
 ```bash
 # Stop the server
@@ -271,15 +308,25 @@ Full volume backups created automatically before config-swap operations. Stored 
 
 Backup schedules are configured per-environment in the game's environment config (`backup_config.backup_schedule`).
 
-## CI/CD
+## Deployment
 
-| Workflow | Trigger | Purpose |
-|----------|---------|---------|
-| `pr-validation.yml` | PR to `main` | shellcheck, JSON validation, bash syntax, security scan |
-| `deploy-staging.yml` | Push to `develop` | Deploy to staging server via SSH |
-| `deploy-production.yml` | Push to `main` | Deploy to production with rollback on failure |
+There is no CI/CD. Deploys are intentionally manual so unrelated code changes can never trigger an unplanned restart of a live server. Flow:
 
-Deployments package `scripts/`, `games/`, and `systemd/` into a tarball, deploy to `/opt/gameserver-admin` on the target server (owned by `root:gameserver`), and run post-deployment health checks.
+1. Push changes to the `main` branch on the remote.
+2. SSH to the server, `cd ~/GameServerAdministration`, `git pull`.
+3. Run any required scripts by hand (`server-manager.sh start`/`stop`/`restart`, `scripts/automation/...`, etc.).
+
+Most edits take effect on the next operation:
+- **Plugin functions** (`game-specific-logic.sh`), **automation scripts**, **env JSON**, and **presets** are re-read every time a script runs — no restart needed.
+- **Compose template changes** (`docker-compose.template.yml`) only land for an instance after its next `start`, since the compose file is regenerated by the start function.
+
+Run these locally before pushing to catch typos:
+
+```bash
+find games/ -name "*.json" -exec jq empty {} \;
+bash -n scripts/**/*.sh games/*/scripts/*.sh
+shellcheck scripts/**/*.sh games/*/scripts/*.sh   # optional, if installed
+```
 
 ## Adding a New Game
 
@@ -293,7 +340,7 @@ Deployments package `scripts/`, `games/`, and `systemd/` into a tarball, deploy 
      scripts/game-specific-logic.sh
    ```
 
-2. Implement the required plugin functions in `game-specific-logic.sh` (use `palworld` as a reference). The plugin system can generate a template:
+2. Implement the required plugin functions in `game-specific-logic.sh`. Use the existing plugins as references — `palworld` is the most fully-featured (cold config swap, REST API integration), `ark` demonstrates hot-swappable settings via a sidecar nginx volume and shared cross-instance cluster volumes. The plugin system can generate a template:
    ```bash
    source scripts/shared/game-plugins.sh
    create_plugin_template <game>

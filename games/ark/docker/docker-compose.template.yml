@@ -12,6 +12,7 @@ services:
     volumes:
       - ark_server_files:/home/pok/arkserver
       - ark_saved_data:/home/pok/arkserver/ShooterGame/Saved
+      - ark_cluster_data:/home/pok/arkserver/ShooterGame/Saved/clusters
     restart: ${RESTART_POLICY}
     environment:
       - INSTANCE_NAME=${CONTAINER_NAME}
@@ -31,6 +32,7 @@ services:
       - API=FALSE
       - MOD_IDS=${MOD_IDS}
       - PASSIVE_MODS=${PASSIVE_MODS}
+      - CLUSTER_ID=${CLUSTER_ID}
       - CUSTOM_SERVER_ARGS=-QueryPort=${QUERY_PORT} -UseDynamicConfig -CustomDynamicConfigUrl=http://ark-config:80/GameUserSettings.ini
     deploy:
       resources:
@@ -54,3 +56,6 @@ volumes:
   ark_dynamic_config:
     external: true
     name: ${DYNAMIC_CONFIG_VOLUME}
+  ark_cluster_data:
+    external: true
+    name: ${CLUSTER_VOLUME}

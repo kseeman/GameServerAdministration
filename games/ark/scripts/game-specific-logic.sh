@@ -522,6 +522,8 @@ ark_start_server() {
     local passive_mods=""
     local server_files_volume="ark-server-files-${env}"
     local dynamic_config_volume="ark-dynconfig-${env}-${instance}"
+    local cluster_id=""
+    local cluster_volume="ark-cluster-${env}"
 
     if [[ -f "$env_config" ]] && command -v jq >/dev/null 2>&1; then
         local base_name
@@ -543,6 +545,8 @@ ark_start_server() {
         [[ "$rcon_raw" == "true" ]] && rcon_enabled="TRUE" || rcon_enabled="FALSE"
         mod_ids=$(jq -r ".instances.\"$instance\".mod_ids // \"\"" "$env_config")
         passive_mods=$(jq -r ".instances.\"$instance\".passive_mods // \"\"" "$env_config")
+        cluster_id=$(jq -r '.cluster_config.cluster_id // ""' "$env_config")
+        cluster_volume=$(jq -r ".cluster_config.cluster_volume // \"ark-cluster-${env}\"" "$env_config")
     fi
 
     # Generate docker-compose file from template
@@ -576,6 +580,8 @@ ark_start_server() {
     UPDATE_ON_BOOT="$update_on_boot" \
     MOD_IDS="$mod_ids" \
     PASSIVE_MODS="$passive_mods" \
+    CLUSTER_ID="$cluster_id" \
+    CLUSTER_VOLUME="$cluster_volume" \
     envsubst < "$template_file" > "$compose_file"
 
     # Create Docker volumes if they don't exist
@@ -592,6 +598,11 @@ ark_start_server() {
     if ! volume_exists "$dynamic_config_volume"; then
         log_info "Creating dynamic config volume: $dynamic_config_volume"
         docker volume create "$dynamic_config_volume" >/dev/null
+    fi
+    # Cluster volume — shared across all instances in this environment
+    if ! volume_exists "$cluster_volume"; then
+        log_info "Creating cluster volume: $cluster_volume"
+        docker volume create "$cluster_volume" >/dev/null
     fi
     # Seed dynamic config with initial preset settings
     ark_write_dynamic_config "$dynamic_config_volume" "$preset_file" "$env" "$instance"
@@ -657,6 +668,10 @@ ark_start_server() {
         echo "  Game Port: $game_port"
         echo "  Query Port: $query_port"
         echo "  RCON Port: $rcon_port"
+        if [[ -n "$cluster_id" ]]; then
+            echo "  Cluster ID: $cluster_id"
+            echo "  Cluster Volume: $cluster_volume"
+        fi
 
         if [[ -n "$backup_file" ]]; then
             echo "  Restored from: $(basename "$backup_file")"
@@ -1100,6 +1115,212 @@ ark_restore_data() {
     return 0
 }
 
+# --- Cluster volume backup/restore ---
+
+# Back up the shared cluster volume for an environment.
+# Skips silently if clustering is disabled (empty cluster_id) or the volume
+# is missing/empty. Backup lands at backups/{env}/_cluster/.
+ark_backup_cluster() {
+    local env="$1"
+
+    if [[ -z "$env" ]]; then
+        log_error "ark_backup_cluster requires <env> argument"
+        return 1
+    fi
+
+    local env_config
+    env_config=$(get_game_env_config "ark" "$env")
+    if [[ ! -f "$env_config" ]]; then
+        log_error "ARK env config not found: $env_config"
+        return 1
+    fi
+
+    local cluster_id cluster_volume
+    cluster_id=$(jq -r '.cluster_config.cluster_id // ""' "$env_config")
+    cluster_volume=$(jq -r ".cluster_config.cluster_volume // \"ark-cluster-${env}\"" "$env_config")
+
+    if [[ -z "$cluster_id" ]]; then
+        log_info "Clustering disabled for ark/$env (empty cluster_id), skipping cluster backup"
+        return 0
+    fi
+
+    if ! volume_exists "$cluster_volume"; then
+        log_info "Cluster volume not present: $cluster_volume, skipping cluster backup"
+        return 0
+    fi
+
+    # Check if volume has any contents — empty cluster has nothing to back up
+    local has_contents
+    has_contents=$(docker run --rm -v "${cluster_volume}:/c" ubuntu:22.04 \
+        sh -c 'ls -A /c 2>/dev/null | head -1' 2>/dev/null)
+    if [[ -z "$has_contents" ]]; then
+        log_info "Cluster volume $cluster_volume is empty, skipping cluster backup"
+        return 0
+    fi
+
+    local timestamp
+    timestamp=$(date +%Y%m%d_%H%M%S)
+    local backup_dir="${REPO_ROOT}/backups/${env}/_cluster"
+    local backup_name="cluster_${env}_${timestamp}"
+    local backup_file="${backup_dir}/${backup_name}.tar.gz"
+    local meta_file="${backup_dir}/${backup_name}.meta.json"
+
+    mkdir -p "$backup_dir"
+
+    log_info "Creating ARK cluster backup: $(basename "$backup_file")"
+
+    local temp_container="temp-ark-cluster-backup-$$"
+    docker run -d --name "$temp_container" \
+        -v "${cluster_volume}:/cluster" \
+        ubuntu:22.04 sleep 300 >/dev/null
+
+    if [[ $? -ne 0 ]]; then
+        log_error "Failed to create temporary container for cluster backup"
+        return 1
+    fi
+
+    local temp_dir
+    temp_dir=$(mktemp -d)
+
+    docker cp "${temp_container}:/cluster/." "$temp_dir/" 2>/dev/null || true
+
+    # Tar contents
+    (cd "$temp_dir" && tar -czf "$backup_file" .)
+    local tar_rc=$?
+
+    docker rm -f "$temp_container" >/dev/null 2>&1
+    rm -rf "$temp_dir"
+
+    if [[ $tar_rc -ne 0 || ! -f "$backup_file" ]]; then
+        log_error "Failed to create cluster backup archive"
+        return 1
+    fi
+
+    # Snapshot of instances configured for this env at backup time
+    local instance_list
+    instance_list=$(jq -c '.instances | keys' "$env_config" 2>/dev/null || echo '[]')
+
+    cat > "$meta_file" << META_EOF
+{
+    "game": "ark",
+    "scope": "cluster",
+    "environment": "$env",
+    "cluster_id": "$cluster_id",
+    "cluster_volume": "$cluster_volume",
+    "backup_name": "$backup_name",
+    "timestamp": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+    "configured_instances": $instance_list
+}
+META_EOF
+
+    local backup_size
+    backup_size=$(du -sh "$backup_file" | cut -f1)
+    log_success "ARK cluster backup created: $backup_size"
+    log_info "Backup file: $backup_file"
+    echo "$backup_file"
+    return 0
+}
+
+# Restore the shared cluster volume for an environment from a backup.
+# Refuses to run if any ARK instance in the env is currently running, since
+# wiping the volume under live mounts would corrupt cluster state.
+ark_restore_cluster() {
+    local env="$1"
+    local backup_file="$2"
+
+    if [[ -z "$env" || -z "$backup_file" ]]; then
+        log_error "ark_restore_cluster requires <env> <backup_file>"
+        return 1
+    fi
+
+    local env_config
+    env_config=$(get_game_env_config "ark" "$env")
+    if [[ ! -f "$env_config" ]]; then
+        log_error "ARK env config not found: $env_config"
+        return 1
+    fi
+
+    local cluster_volume
+    cluster_volume=$(jq -r ".cluster_config.cluster_volume // \"ark-cluster-${env}\"" "$env_config")
+
+    # Search for the backup file if not absolute
+    if [[ ! -f "$backup_file" ]]; then
+        local candidate="${REPO_ROOT}/backups/${env}/_cluster/${backup_file}"
+        if [[ -f "$candidate" ]]; then
+            backup_file="$candidate"
+            log_info "Resolved backup path: $backup_file"
+        else
+            log_error "Cluster backup file not found: $backup_file"
+            log_error "Searched: $candidate"
+            return 1
+        fi
+    fi
+
+    # Refuse to restore while any instance in this env is running.
+    # The cluster volume is mounted live by every running ark-{env}-* container.
+    local running=()
+    local instance
+    while IFS= read -r instance; do
+        [[ -z "$instance" ]] && continue
+        local cname
+        cname=$(get_container_name "ark" "$instance" "$env")
+        if container_running "$cname"; then
+            running+=("$cname")
+        fi
+    done < <(jq -r '.instances | keys[]' "$env_config" 2>/dev/null)
+
+    if [[ ${#running[@]} -gt 0 ]]; then
+        log_error "Cannot restore cluster volume while ARK instances are running:"
+        for c in "${running[@]}"; do
+            log_error "  - $c"
+        done
+        log_error "Stop all ARK instances in '$env' before restoring."
+        return 1
+    fi
+
+    if ! volume_exists "$cluster_volume"; then
+        log_info "Creating cluster volume: $cluster_volume"
+        docker volume create "$cluster_volume" >/dev/null
+    fi
+
+    # Extract backup to temp dir
+    local temp_dir
+    temp_dir=$(mktemp -d)
+    if ! tar -xzf "$backup_file" -C "$temp_dir" 2>/dev/null; then
+        log_error "Failed to extract backup file: $backup_file"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    # Wipe + restore via temp container
+    local temp_container="temp-ark-cluster-restore-$$"
+    docker run -d --name "$temp_container" \
+        -v "${cluster_volume}:/cluster" \
+        ubuntu:22.04 sleep 300 >/dev/null
+
+    if [[ $? -ne 0 ]]; then
+        log_error "Failed to create temporary container for cluster restore"
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    log_info "Clearing existing cluster contents..."
+    docker exec "$temp_container" sh -c 'rm -rf /cluster/* /cluster/.[!.]* 2>/dev/null' || true
+
+    log_info "Restoring cluster contents from backup..."
+    docker cp "$temp_dir/." "${temp_container}:/cluster/"
+
+    # ARK runs as UID 7777
+    docker exec "$temp_container" chown -R 7777:7777 /cluster 2>/dev/null || true
+
+    docker rm -f "$temp_container" >/dev/null 2>&1
+    rm -rf "$temp_dir"
+
+    log_success "ARK cluster volume restored from $(basename "$backup_file")"
+    log_info "Volume: $cluster_volume"
+    return 0
+}
+
 # --- RCON helper ---
 
 ark_rcon_command() {
@@ -1193,6 +1414,7 @@ ark_validate_preset() {
 export -f ark_start_server ark_stop_server ark_restart_server
 export -f ark_health_check ark_config_swap
 export -f ark_backup_data ark_restore_data
+export -f ark_backup_cluster ark_restore_cluster
 export -f ark_get_ports ark_validate_preset
 export -f ark_resolve_preset ark_generate_game_user_settings_ini ark_generate_game_ini
 export -f ark_inject_settings ark_rcon_command

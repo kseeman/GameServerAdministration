@@ -53,6 +53,14 @@
     "backup_schedule": "0 */4 * * *",
     "backup_location": "./backups/staging/{instance}/"
   },
+  "cluster_config": {
+    "cluster_id": "vauldamir-staging",
+    "cluster_volume": "ark-cluster-staging"
+  },
+  "cluster_backup_config": {
+    "retention": 24,
+    "location": "./backups/staging/_cluster/"
+  },
   "instances": {
     "test": {
       "description": "Testing server instance",

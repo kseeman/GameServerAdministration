@@ -51,7 +51,15 @@
         "bDisableDinoDecayPvE": false,
         "KickIdlePlayersPeriod": 3600.0,
         "MaxPlatformSaddleStructureLimit": 100,
-        "bAllowHitMarkers": true
+        "bAllowHitMarkers": true,
+        "noTributeDownloads": false,
+        "PreventDownloadSurvivors": false,
+        "PreventDownloadItems": false,
+        "PreventDownloadDinos": false,
+        "PreventUploadSurvivors": false,
+        "PreventUploadItems": false,
+        "PreventUploadDinos": false,
+        "CrossARKAllowForeignDinoDownloads": true
       },
       "SessionSettings": {
         "SessionName": "ARK Server"

@@ -53,6 +53,14 @@
     "backup_schedule": "0 */2 * * *",
     "backup_location": "./backups/production/{instance}/"
   },
+  "cluster_config": {
+    "cluster_id": "vauldamir-production",
+    "cluster_volume": "ark-cluster-production"
+  },
+  "cluster_backup_config": {
+    "retention": 96,
+    "location": "./backups/production/_cluster/"
+  },
   "instances": {
     "island": {
       "description": "The Island",

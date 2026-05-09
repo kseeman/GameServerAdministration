@@ -300,6 +300,42 @@ cleanup_old_backups() {
     fi
 }
 
+# Clean old cluster backups based on per-env retention policy.
+# Cluster backups live at backups/{env}/_cluster/ (per-env, not per-instance).
+cleanup_old_cluster_backups() {
+    local game="$1"
+    local env="$2"
+
+    local backup_dir="$PROJECT_ROOT/backups/${env}/_cluster"
+    [[ ! -d "$backup_dir" ]] && return 0
+
+    local config=$(get_game_env_config "$game" "$env")
+    local retention=96  # Default: 8 days at 2h cadence
+
+    if [[ -f "$config" ]] && command -v jq >/dev/null 2>&1; then
+        retention=$(jq -r '.cluster_backup_config.retention // 96' "$config")
+    fi
+
+    local backup_count
+    backup_count=$(find "$backup_dir" -maxdepth 1 -name "*.tar.gz" -type f | wc -l)
+
+    if [[ $backup_count -gt $retention ]]; then
+        local to_delete=$((backup_count - retention))
+        log_backup "INFO" "Cleaning up $to_delete old cluster backups for $game/$env"
+
+        find "$backup_dir" -maxdepth 1 -name "*.tar.gz" -type f -printf '%T@ %p\n' | \
+            sort -n | \
+            head -n "$to_delete" | \
+            cut -d' ' -f2- | \
+            while read -r file; do
+                [[ "$VERBOSE" == true ]] && log_backup "INFO" "Removing old cluster backup: $(basename "$file")"
+                rm -f "$file"
+                local meta_file="${file%.tar.gz}.meta.json"
+                [[ -f "$meta_file" ]] && rm -f "$meta_file"
+            done
+    fi
+}
+
 # Main backup orchestration
 run_scheduled_backup() {
     log_backup "INFO" "Starting scheduled backup run (env: $ENVIRONMENT, game: $GAME)"
@@ -317,29 +353,68 @@ run_scheduled_backup() {
     local success_count=0
     local failure_count=0
     local skip_count=0
-    
+    local cluster_success=0
+    local cluster_failure=0
+
     # Process instances with concurrency control
     local active_jobs=0
-    
+
+    # Track unique (game, env) pairs that had at least one successful instance
+    # backup — used below to drive optional cluster-volume backups.
+    local cluster_pairs=()
+
     for instance_spec in "${instances[@]}"; do
         IFS=':' read -r game env instance <<< "$instance_spec"
-        
+
         # Check if we should backup this instance
         if ! should_backup_instance "$game" "$env" "$instance"; then
             skip_count=$((skip_count + 1))
             continue
         fi
-        
+
         # Run backup sequentially (background subshells lose loaded plugin functions)
         if backup_instance "$game" "$env" "$instance"; then
             success_count=$((success_count + 1))
+            cluster_pairs+=("${game}:${env}")
         else
             failure_count=$((failure_count + 1))
         fi
     done
-    
+
+    # --- Cluster-volume phase ---
+    # For each unique (game, env) pair seen above, call the optional plugin
+    # hook <game>_backup_cluster if defined. Games without cluster volumes
+    # (palworld, minecraft, etc.) don't define it, so they're skipped silently.
+    local seen_pairs="|"
+    for pair in "${cluster_pairs[@]}"; do
+        if [[ "$seen_pairs" == *"|${pair}|"* ]]; then
+            continue
+        fi
+        seen_pairs="${seen_pairs}${pair}|"
+        IFS=':' read -r cgame cenv <<< "$pair"
+
+        if ! declare -F "${cgame}_backup_cluster" >/dev/null 2>&1; then
+            continue
+        fi
+
+        if [[ "$DRY_RUN" == true ]]; then
+            log_backup "INFO" "[DRY-RUN] Would back up cluster volume for ${cgame}/${cenv}"
+            continue
+        fi
+
+        log_backup "INFO" "Backing up cluster volume for ${cgame}/${cenv}"
+        if "${cgame}_backup_cluster" "$cenv" >/dev/null; then
+            log_backup "SUCCESS" "Cluster backup completed for ${cgame}/${cenv}"
+            cluster_success=$((cluster_success + 1))
+            cleanup_old_cluster_backups "$cgame" "$cenv"
+        else
+            log_backup "WARNING" "Cluster backup failed for ${cgame}/${cenv}"
+            cluster_failure=$((cluster_failure + 1))
+        fi
+    done
+
     # Final summary
-    log_backup "INFO" "Backup run completed: $success_count successful, $failure_count failed, $skip_count skipped"
+    log_backup "INFO" "Backup run completed: $success_count successful, $failure_count failed, $skip_count skipped (cluster: $cluster_success ok, $cluster_failure failed)"
     
     if [[ $failure_count -gt 0 ]]; then
         return 1
