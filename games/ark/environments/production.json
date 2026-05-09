@@ -79,6 +79,60 @@
       "max_players": 30,
       "mod_ids": "",
       "passive_mods": ""
+    },
+    "lost-colony": {
+      "description": "Lost Colony",
+      "map": "LostColony_WP",
+      "default_preset": "default",
+      "port_offset": 2,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "scorched-earth": {
+      "description": "Scorched Earth",
+      "map": "ScorchedEarth_WP",
+      "default_preset": "default",
+      "port_offset": 3,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "astraeos": {
+      "description": "Astraeos",
+      "map": "Astraeos_WP",
+      "default_preset": "default",
+      "port_offset": 4,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "the-center": {
+      "description": "The Center",
+      "map": "TheCenter_WP",
+      "default_preset": "default",
+      "port_offset": 5,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "ragnarok": {
+      "description": "Ragnarok",
+      "map": "Ragnarok_WP",
+      "default_preset": "default",
+      "port_offset": 6,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
+    },
+    "extinction": {
+      "description": "Extinction",
+      "map": "Extinction_WP",
+      "default_preset": "default",
+      "port_offset": 7,
+      "max_players": 70,
+      "mod_ids": "",
+      "passive_mods": ""
     }
   }
 }
