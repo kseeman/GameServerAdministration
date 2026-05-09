@@ -41,7 +41,7 @@
         "MaxPersonalTamedDinos": 500,
         "AutoSavePeriodMinutes": 15.0,
         "MaxTamedDinos": 5000,
-        "ItemStackSizeMultiplier": 1.0,
+        "ItemStackSizeMultiplier": 2.0,
         "RCONEnabled": true,
         "bAllowPlatformSaddleMultiFloors": true,
         "bPassiveDefensesDamageRiderlessDinos": true,
