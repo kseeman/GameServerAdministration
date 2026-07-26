@@ -7,7 +7,7 @@
     "inherits": "pixelmon.json"
   },
   "mod_config": {
-    "modrinth_projects": "pixelmon,incendium,jei,journeymap,lithostitched,melody,nullscape,structory,structory-towers,tectonic,terralith",
+    "modrinth_projects": "pixelmon,incendium,jei,journeymap,lithostitched,melody,nullscape,structory,tectonic,terralith",
     "modrinth_allowed_version_type": "alpha",
     "curseforge_files": "",
     "mods": ""

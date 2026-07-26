@@ -75,6 +75,19 @@
       "default_preset": "main",
       "port_offset": 4,
       "max_players": 32
+    },
+    "main1": {
+      "description": "Main",
+      "default_preset": "main",
+      "port_offset": 5,
+      "max_players": 32
+    },
+    "fresh": {
+      "description": "Fresh 1.0",
+      "default_preset": "nerfedXp",
+      "port_offset": 6,
+      "max_players": 32
     }
   }
 }
+    

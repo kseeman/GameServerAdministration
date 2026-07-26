@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "Fresh 1.0",
+    "description": "Vauldamir's Main server - custom settings",
+    "version": "1.0",
+    "created": "2026-04-03T00:00:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "BaseCampWorkerMaxNum": 50,
+    "BaseCampMaxNumInGuild": 5,
+    "PalEggDefaultHatchingTime": 12,
+    "bAllowGlobalPalboxImport": true,
+    "bAllowGlobalPalboxExport": true,
+    "ExpRate": 0.6
+  }
+}
