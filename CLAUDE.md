@@ -54,6 +54,47 @@ Backup/restore is implemented per-game (`<game>_backup_data`, `<game>_restore_da
 
 **Restore** (`palworld_restore_data`): Nukes existing `SaveGames/` and `Config/` in the volume and replaces them wholesale from the backup. The backup's `GameUserSettings.ini` contains the correct `DedicatedServerName` matching the world folder in `SaveGames/0/<worldId>/`. Container must be stopped before restoring.
 
+## `gsa` — terminal UI
+
+`cmd/gsa` is a Go/Bubble Tea terminal app that fronts the whole fleet: a dashboard of every
+game × instance × environment with running state, active preset and ports, plus keybindings
+for every `server-manager.sh` operation, a preset picker, a backup browser and a streamed
+output pane.
+
+**The rule it is built around: bash owns all writes, Go owns all reads.** The TUI reads
+`games/*/environments/*.json`, `games/*/presets/*.json`, `.state/*.preset`, `backups/**/*.meta.json`
+and `docker ps` natively, and performs every mutation by exec'ing `scripts/core/server-manager.sh`.
+It contains no game logic — the plugin system stays the only implementation of that. When
+changing the bash, nothing in Go needs updating unless one of these read contracts moves:
+
+- `internal/config.ContainerName` / `VolumeName` mirror `get_container_name` / `get_volume_name`
+  (`server-utils.sh:168,186`). Note both bash and Go ignore `naming_conventions.*_pattern` in
+  the env JSON — those keys are documentation only.
+- `internal/config.EnvConfig.PortsFor` mirrors `get_port_assignments` (`server-utils.sh:280`).
+  `internal/config`'s test suite runs the real bash function for all ~31 instances and requires
+  exact agreement, so a change to the port math fails `go test` immediately.
+
+Safety notes baked in: the TUI passes `--force` (so the script's blocking `read` prompt never
+fires) and does its own confirmation instead — typed `<game>-<instance>` for `restore`, capital
+`Y` for any production mutation. Success is read from the **exit code**, never from the log
+text, since `log_*` writes ANSI-coloured `[LEVEL]` lines to stdout. Mutations take an advisory
+`flock` in `.state/locks/` so two TUI operations cannot overlap on one instance; this cannot
+stop cron, so the detail pane also shows the relevant crontab entries.
+
+```bash
+make                 # build bin/gsa (run this on the server after git pull)
+./bin/gsa            # launch the dashboard
+./bin/gsa --env production   # start filtered to one environment
+./bin/gsa --check    # non-interactive smoke test: repo, instance count, docker reachability
+make check           # go vet + go test + the existing bash/jq validation
+```
+
+The backup browser filters archives on the sidecar's `game` field, never the filename.
+`backups/{env}/{instance}/` has no game segment and all six games define a staging instance
+called `test`, so that directory genuinely holds several games' archives at once — and at least
+one Minecraft archive there is named `scheduled_default_test_staging_*`, which looks exactly
+like a Palworld backup. Archives with no sidecar are shown but never offered for restore.
+
 ## Common Commands
 
 ```bash
@@ -91,7 +132,12 @@ Pre-push sanity (run locally):
 ```bash
 find games/ -name "*.json" -exec jq empty {} \;
 bash -n scripts/**/*.sh games/*/scripts/*.sh
+make check   # if any Go under cmd/ or internal/ changed
 ```
+
+The `gsa` binary is gitignored, so deploying it is `git pull` then `make` on the server. That
+needs the Go toolchain installed there. `make` only rebuilds when Go sources change, so it is
+safe to run on every pull.
 
 ## Key Conventions
 

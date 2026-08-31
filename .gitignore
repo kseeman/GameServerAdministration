@@ -1,10 +1,13 @@
-palworld-docker/
+/palworld-docker/
 
 # Runtime artifacts
-backups/
+/backups/
 docker-compose-*.yml
-.state/
-config/
+/.state/
+/config/
 
 # Local secrets — never commit. See .env.example for the expected keys.
 .env
+
+# Compiled gsa binary — build it on the server with `make`.
+/bin/
