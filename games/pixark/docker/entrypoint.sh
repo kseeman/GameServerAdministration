@@ -64,19 +64,42 @@ install_or_update_server() {
     echo ">>> steamcmd: installing/updating PixARK (app ${APP_ID}) into ${PIXARK_DIR}"
     # PixARK is a Windows-only game; force the Windows platform type before
     # +login so steamcmd pulls the Windows depot on this Linux host.
+    local manifest="${PIXARK_DIR}/steamapps/appmanifest_${APP_ID}.acf"
     local attempt
     for attempt in 1 2 3; do
+        # +app_info_update 1 is required, not optional. Without it steamcmd can
+        # reach "Waiting for user info...OK" and then fail with
+        #   ERROR! Failed to install app '824360' (Missing configuration)
+        # because it has no cached app info to resolve the forced Windows
+        # platform against — reliably so when the appmanifest is absent, which
+        # is exactly the state the wedge recovery below leaves behind.
         if steamcmd +@sSteamCmdForcePlatformType windows \
             +force_install_dir "$PIXARK_DIR" \
             +login anonymous \
+            +app_info_update 1 \
             +app_update "$APP_ID" validate \
             +quit; then
             return 0
         fi
+
+        # Every time Snail publishes a new build, the appmanifest tends to wedge:
+        # it records StateFlags 6 (Fully Installed | Update Required) with
+        # UpdateResult 6 and BytesToDownload 0, and steamcmd then fails every
+        # retry with "state is 0x6 after update job" while the newer build sits
+        # there as TargetBuildID. Clearing the manifest makes steamcmd resolve
+        # the depot from scratch; the installed files are kept and `validate`
+        # only pulls the delta. Do this once, on the second attempt, so a plain
+        # transient network failure still just retries.
+        if [[ "$attempt" -eq 1 && -f "$manifest" ]] \
+            && grep -q '"StateFlags"[[:space:]]*"6"' "$manifest" 2>/dev/null; then
+            echo ">>> appmanifest is wedged (StateFlags 6); clearing it and retrying"
+            mv -f "$manifest" "${manifest}.wedged" 2>/dev/null || rm -f "$manifest"
+        fi
+
         echo ">>> steamcmd attempt ${attempt} failed; retrying in 5s"
         sleep 5
     done
-    echo ">>> steamcmd failed after 3 attempts — aborting so we don't run the server with a broken install"
+    echo ">>> steamcmd failed after 3 attempts"
     return 1
 }
 
@@ -135,10 +158,22 @@ if [[ -n "$ALTSAVEDIRECTORYNAME" ]]; then
 else
     save_dir="$STEAM_SAVEDIR"
 fi
-if [[ ! -f "${save_dir}/Config/WindowsServer/GameUserSettings.ini" ]]; then
+gus_ini="${save_dir}/Config/WindowsServer/GameUserSettings.ini"
+if [[ ! -f "$gus_ini" ]]; then
     mkdir -p "${save_dir}/Config/WindowsServer"
-    printf '[SessionSettings]\r\nSessionName=%s\r\n' "$SESSIONNAME" \
-        > "${save_dir}/Config/WindowsServer/GameUserSettings.ini"
+    printf '[SessionSettings]\r\nSessionName=%s\r\n' "$SESSIONNAME" > "$gus_ini"
+elif grep -q '^SessionName=' "$gus_ini" 2>/dev/null; then
+    # Rewrite the name on every start rather than only seeding a fresh volume.
+    # The server persists SessionName here on first boot, so seed-only meant the
+    # environment JSON could never rename an existing instance — editing
+    # base_server_name or an instance description simply had no effect. The JSON
+    # is the source of truth; everything else in this file is the game's and is
+    # left untouched. Written with awk because the name contains characters sed
+    # would treat as special, and the file uses CRLF line endings.
+    awk -v name="$SESSIONNAME" '
+        /^SessionName=/ { printf "SessionName=%s\r\n", name; next }
+        { print }
+    ' "$gus_ini" > "${gus_ini}.tmp" && mv -f "${gus_ini}.tmp" "$gus_ini"
 fi
 
 # Validate map name; fall back to default for anything unrecognized. Keep this

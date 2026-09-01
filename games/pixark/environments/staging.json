@@ -55,7 +55,7 @@
   },
   "instances": {
     "test": {
-      "description": "Testing server instance",
+      "description": "Test",
       "default_preset": "default",
       "port_offset": 0,
       "max_players": 4,
@@ -66,7 +66,7 @@
       "cluster_id": ""
     },
     "terracrypt": {
-      "description": "Terracrypt (Underground) expansion server",
+      "description": "Terracrypt",
       "default_preset": "default",
       "port_offset": 1,
       "max_players": 4,
