@@ -69,7 +69,7 @@
       "description": "Terracrypt",
       "default_preset": "default",
       "port_offset": 1,
-      "max_players": 8,
+      "max_players": 30,
       "map": "Underground_Light",
       "cube_world": "cubeworld",
       "map_seed": "",
