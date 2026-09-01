@@ -11,7 +11,7 @@
     "data_volume_path": "/home/steam/PixARK-dedicated/ShooterGame/Saved",
     "config_files": ["GameUserSettings.ini", "Game.ini"],
     "backup_includes": ["."],
-    "update_on_boot": false,
+    "update_on_boot": true,
     "health_check": {
       "type": "container",
       "port": "game_port"
@@ -60,6 +60,17 @@
       "port_offset": 0,
       "max_players": 4,
       "map": "CubeWorld_Light",
+      "cube_world": "cubeworld",
+      "map_seed": "",
+      "alt_save_dir": "",
+      "cluster_id": ""
+    },
+    "terracrypt": {
+      "description": "Terracrypt (Underground) expansion server",
+      "default_preset": "default",
+      "port_offset": 1,
+      "max_players": 4,
+      "map": "Underground_Light",
       "cube_world": "cubeworld",
       "map_seed": "",
       "alt_save_dir": "",

@@ -200,12 +200,32 @@ pixark_start_server() {
         max_players=$(jq -r ".instances.\"$instance\".max_players // 8" "$env_config")
         port_offset=$(jq -r ".instances.\"$instance\".port_offset // 0" "$env_config")
         local update_raw
-        update_raw=$(jq -r '.game.update_on_boot // true' "$env_config")
+        # NOT `.game.update_on_boot // true`: jq's // treats false and null
+        # alike, so `false // true` is true and update_on_boot:false could never
+        # be honoured — steamcmd ran on every single start regardless. Test for
+        # the key's presence instead.
+        update_raw=$(jq -r 'if .game | has("update_on_boot") then .game.update_on_boot else true end' "$env_config")
         [[ "$update_raw" == "true" ]] && update_on_start="true" || update_on_start="false"
     fi
 
     # Install volume is shared across instances in the same env (mirrors ARK's server_files pattern)
     local install_volume_name="pixark-install-${env}"
+
+    # Because that volume is shared, letting a starting instance run
+    # `steamcmd app_update ... validate` against it would rewrite game binaries
+    # underneath any instance already serving players out of the same files.
+    # Only an instance that is first up in its environment may update.
+    if [[ "$update_on_start" == "true" ]] && command -v docker >/dev/null 2>&1; then
+        local sharing_install
+        sharing_install=$(docker ps --filter "volume=${install_volume_name}" --format '{{.Names}}' 2>/dev/null \
+            | grep -vx "$container_name" || true)
+        if [[ -n "$sharing_install" ]]; then
+            log_warning "Instances already running off ${install_volume_name}: $(echo "$sharing_install" | tr '\n' ' ')"
+            log_warning "Skipping steamcmd update — it would rewrite game files under a live server."
+            log_warning "Stop every pixark ${env} instance and start one to take an update."
+            update_on_start="false"
+        fi
+    fi
 
     local rcon_enabled="True"
     [[ "$rcon_enabled_raw" == "false" ]] && rcon_enabled="False"

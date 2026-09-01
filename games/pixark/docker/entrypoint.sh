@@ -141,9 +141,17 @@ if [[ ! -f "${save_dir}/Config/WindowsServer/GameUserSettings.ini" ]]; then
         > "${save_dir}/Config/WindowsServer/GameUserSettings.ini"
 fi
 
-# Validate map name; fall back to default for anything unrecognized.
+# Validate map name; fall back to default for anything unrecognized. Keep this
+# in step with the .umap files actually shipped in
+# ShooterGame/Content/**/Maps — a name that is not on this list is silently
+# swapped for CubeWorld_Light, which looks like "my map setting is ignored".
+#   CubeWorld_Light    base cube world
+#   SkyPiea_light      Skyward
+#   Underground_Light  Terracrypt (paid DLC, Steam app 3747200) — players must
+#                      own the DLC to join, though the server content ships in
+#                      the dedicated-server package (824360).
 case "$MAP" in
-    CubeWorld_Light|SkyPiea_light) ;;
+    CubeWorld_Light|SkyPiea_light|Underground_Light) ;;
     *) echo ">>> Unknown map '$MAP' — defaulting to CubeWorld_Light"; MAP="CubeWorld_Light" ;;
 esac
 

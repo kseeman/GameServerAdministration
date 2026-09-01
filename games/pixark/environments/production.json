@@ -11,7 +11,7 @@
     "data_volume_path": "/home/steam/PixARK-dedicated/ShooterGame/Saved",
     "config_files": ["GameUserSettings.ini", "Game.ini"],
     "backup_includes": ["."],
-    "update_on_boot": false,
+    "update_on_boot": true,
     "health_check": {
       "type": "container",
       "port": "game_port"
