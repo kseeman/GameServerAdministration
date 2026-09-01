@@ -6,11 +6,13 @@
 # environment variables; PixARK (Unreal-based) additionally accepts a string
 # of ?Arg=Value URL-style CLI args via ADDITIONAL_ARGS.
 #
-# PixARK is port-remap-hostile if the game's internal port differs from the
-# external port, but the upstream image reads PORT/QUERYPORT/RCONPORT/CUBEPORT
-# from env vars — so we pass offset-shifted ports as BOTH external and
-# internal, avoiding Docker NAT mismatch and preserving the platform's
-# per-instance port offset model.
+# PixARK is port-remap-hostile, and worse: under a Docker bridge network it
+# advertises its container-internal address to clients for the voxel terrain
+# session, so players connect and spawn but never receive any terrain. The
+# container therefore runs with host networking (see the comment at the top of
+# docker-compose.template.yml). The offset-shifted ports below are still what
+# the server binds to directly — the per-instance offset model is what keeps
+# instances from colliding now that there is no network namespace between them.
 
 # Source shared utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -229,6 +231,20 @@ pixark_start_server() {
     log_info "Generating compose file: $compose_file"
     log_info "SFTP port: $sft_port (base=$sft_port_base, offset=$port_offset)"
 
+    # Wine 11 uses the kernel's ntsync sync primitives when /dev/ntsync exists,
+    # which is a large win for a heavily threaded UE4 server. Map the device
+    # only when the host actually has it (kernel 6.14+) — naming a device that
+    # does not exist is a hard container-start failure, and the server runs
+    # fine on the futex fallback without it.
+    local ntsync_block=""
+    if [[ -c /dev/ntsync ]]; then
+        ntsync_block=$'    devices:\n      - /dev/ntsync:/dev/ntsync'
+        log_info "Host provides /dev/ntsync — enabling Wine ntsync fast path"
+    else
+        log_info "No /dev/ntsync on host — Wine will use the futex fallback"
+    fi
+
+    NTSYNC_BLOCK="$ntsync_block" \
     CONTAINER_NAME="$container_name" \
     VOLUME_NAME="$volume_name" \
     INSTALL_VOLUME_NAME="$install_volume_name" \

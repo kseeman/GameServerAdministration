@@ -1,18 +1,35 @@
+# PixARK runs with host networking. This is not a preference — it is the fix
+# for the "world loads but terrain doesn't, players float above nothing" bug.
+#
+# PixARK serves voxel terrain over a separate channel from the UE4 actor
+# replication on the game port. Under Docker's bridge network the server logs
+#   LogInit: WinSock: I am <container> (172.19.0.3:0)
+# and hands clients that address for the terrain session. 172.19.0.3 is
+# unroutable from outside the host, so the client connects, spawns, and
+# replicates entities over the NAT'd UDP game port — but the terrain data
+# session never establishes and no chunks ever arrive. The old logs show the
+# cube server loading 300MB+ of chunks happily while not a single
+# BrickWorldDataSenssion client line is ever written.
+#
+# Host networking removes the bridge entirely: the server sees the host's real
+# address and every port binds directly. It also satisfies upstream's warning
+# that "PixARK does not like port remapping". Our per-instance port offsets
+# already keep every instance on distinct ports, so nothing collides.
+#
+# The SFTP sidecar stays on the default bridge network — it is a plain TCP
+# service with no such address-advertisement problem, so it keeps its mapping.
 services:
   pixark-server:
     image: pixark-server:latest
     container_name: ${CONTAINER_NAME}
+    network_mode: host
     stop_grace_period: 30s
     stdin_open: true
     tty: true
-    ports:
-      - "${GAME_PORT}:${GAME_PORT}/udp"
-      - "${QUERY_PORT}:${QUERY_PORT}/udp"
-      - "${RCON_PORT}:${RCON_PORT}/tcp"
-      - "${CUBE_PORT}:${CUBE_PORT}/tcp"
     volumes:
       - pixark_install:/home/steam/PixARK-dedicated
       - pixark_save_data:/home/steam/PixARK-dedicated/ShooterGame/Saved
+${NTSYNC_BLOCK}
     restart: ${RESTART_POLICY}
     environment:
       - UPDATE_ON_START=${UPDATE_ON_START}

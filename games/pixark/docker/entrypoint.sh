@@ -17,7 +17,18 @@ PIXARK_DIR="${PIXARK_DIR:-/home/steam/PixARK-dedicated}"
 if [[ "$EUID" -eq 0 ]]; then
     mkdir -p "$PIXARK_DIR" /home/steam/.steam /home/steam/.wine
     chown -R steam:steam "$PIXARK_DIR" /home/steam/.steam /home/steam/.wine 2>/dev/null || true
-    exec runuser -u steam -- "$0" "$@"
+    # setpriv, not runuser/su. runuser opens a PAM session and owns PID 1, and
+    # on SIGTERM it tears that session down ("Session terminated, killing
+    # shell...") while our shutdown_handler is still mid-sequence — the
+    # broadcasts go out but saveworld never runs, so every stop silently
+    # discarded world state since the last autosave. setpriv just drops
+    # privileges and exec's, leaving this script as PID 1 to handle SIGTERM.
+    #
+    # The tradeoff: setpriv builds no login environment, so HOME/USER must be
+    # set by hand or wine reaches for /root/.wine and mcrcon is looked up under
+    # the wrong home.
+    export HOME=/home/steam USER=steam LOGNAME=steam
+    exec setpriv --reuid=steam --regid=steam --init-groups -- "$0" "$@"
 fi
 
 set -uo pipefail
@@ -69,12 +80,23 @@ install_or_update_server() {
     return 1
 }
 
-# Update on start, or run initial install if the binary is missing.
-if [[ "${UPDATE_ON_START:-true}" == "true" ]]; then
-    install_or_update_server || exit 1
-elif [[ ! -f "${PIXARK_DIR}/ShooterGame/Binaries/Win64/PixARKServer.exe" ]]; then
+SERVER_EXE="${PIXARK_DIR}/ShooterGame/Binaries/Win64/PixARKServer.exe"
+
+# A failed *install* is fatal — there is nothing to run. A failed *update* is
+# not: an existing install still boots, and taking the server down over a
+# transient Steam problem turns a Valve-side hiccup into an outage. This is not
+# hypothetical — a wedged appmanifest (StateFlags 6 / UpdateResult 6) put this
+# container into a 12-deep restart loop with a perfectly good install on disk.
+if [[ ! -f "$SERVER_EXE" ]]; then
     echo ">>> PixARKServer.exe missing; running initial install"
     install_or_update_server || exit 1
+elif [[ "${UPDATE_ON_START:-true}" == "true" ]]; then
+    if ! install_or_update_server; then
+        echo ">>> WARNING: steamcmd update failed, but an existing install is present."
+        echo ">>> WARNING: starting the server on the installed build anyway."
+        echo ">>> WARNING: if Steam has published a newer build, clients on the new"
+        echo ">>> WARNING: version may be unable to connect until this is resolved."
+    fi
 fi
 
 # Final sanity: if the binary still isn't there, there's no point proceeding.
@@ -141,7 +163,12 @@ fi
 url="${url}?MaxPlayers=${MAXPLAYERS}?CULTUREFORCOOKING=${CULTUREFORCOOKING}"
 
 # Build flag arguments (each as its own argv entry).
-declare -a FLAGS=(-NoBattlEy -NoHangDetection)
+# -NoBattlEye, with the trailing 'e'. UE4 silently ignores unrecognised flags,
+# so the long-standing typo "-NoBattlEy" left BattlEye ENABLED — the server
+# still starts and still lists in the Steam browser, but every client connect
+# fails because BattlEye cannot initialise under Wine. Compare a working April
+# run (-NoBattlEye) against the broken ones (-NoBattlEy) in Saved/Logs.
+declare -a FLAGS=(-NoBattlEye -NoHangDetection)
 [[ -n "$ALTSAVEDIRECTORYNAME" ]] && FLAGS+=(-ConfigsUseAltDir)
 [[ -n "$MAPSEED" ]] && FLAGS+=("-Seed=${MAPSEED}")
 [[ -n "$CLUSTERID" ]] && FLAGS+=("-clusterid=${CLUSTERID}")
