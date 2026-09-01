@@ -64,6 +64,17 @@
       "map_seed": "",
       "alt_save_dir": "",
       "cluster_id": ""
+    },
+    "terracrypt": {
+      "description": "Terracrypt",
+      "default_preset": "default",
+      "port_offset": 1,
+      "max_players": 8,
+      "map": "Underground_Light",
+      "cube_world": "cubeworld",
+      "map_seed": "",
+      "alt_save_dir": "",
+      "cluster_id": ""
     }
   }
 }
