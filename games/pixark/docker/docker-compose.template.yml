@@ -49,6 +49,9 @@ ${NTSYNC_BLOCK}
       - CLUSTERID=${CLUSTER_ID}
       - ALTSAVEDIRECTORYNAME=${ALT_SAVE_DIR}
       - ADDITIONAL_ARGS=${ADDITIONAL_ARGS}
+      # base64 of newline-separated Key=Value pairs for GameUserSettings.ini
+      # [ServerSettings]; the entrypoint decodes and merges them on each start.
+      - PIXARK_SERVER_SETTINGS_B64=${SERVER_SETTINGS_B64}
     deploy:
       resources:
         limits:

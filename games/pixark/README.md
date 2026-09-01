@@ -97,6 +97,100 @@ has 32GB and staging is a 4-player test instance — giving both environments 16
 would let a leaking staging server starve production. Raise it only if staging
 starts getting OOM-killed.
 
+## Presets and config swap
+
+**Swaps are always cold, and cannot be otherwise.** PixARK has none of ARK's
+dynamic-config machinery — `dynamicconfig`, `CustomDynamicConfigUrl`,
+`ForceUpdateDynamicConfig` and `UseDynamicConfig` return zero matches in
+`PixARKServer.exe` — and RCON offers no reload verb, only `Broadcast`,
+`SaveWorld`, `DoExit`, `ListPlayers`, `KickPlayer`, `BanPlayer`, `ServerChat`
+and `cheat *`. The only settings changeable at runtime are `SetTimeOfDay` and
+`cheat SetMessageOfTheDay`. `[ServerSettings]` is read once, at process start.
+
+A preset's `game_settings` is a map of real `GameUserSettings.ini`
+`[ServerSettings]` key names:
+
+```json
+"game_settings": {
+  "HarvestAmountMultiplier": 2.0,
+  "XPMultiplier": 2.0,
+  "TamingSpeedMultiplier": 3.0
+}
+```
+
+`additional_args` is the one special key: it is argv (URL-style `?Arg=Value`
+flags), not config, so it stays on the command line. Presets inherit via
+`metadata.inherits`, naming the parent *file* (`"default.json"`), and should
+inherit only from `default`.
+
+The flow is: `pixark_start_server` resolves the preset, splits `additional_args`
+off, base64-encodes the remaining `Key=Value` lines into
+`PIXARK_SERVER_SETTINGS_B64` (base64 because the values would otherwise have to
+survive envsubst and the compose environment intact), and the entrypoint merges
+them into `[ServerSettings]` on **every** start. Re-applying every start is
+deliberate: `GameUserSettings.ini` is widely reported to reset itself across
+restarts, and this makes the preset authoritative regardless.
+
+**The entrypoint tracks what it applied**, in `.pixark-applied-settings` beside
+the save data. Without that, swaps could only ever add keys — going from
+`boosted` back to `default` would leave the boosted multipliers in place while
+`.state` cheerfully reported `default`. Keys a previous preset set that the
+current one does not mention are deleted from the ini so the game falls back to
+its own built-in defaults. Booleans are written `True`/`False`; PixARK will not
+parse JSON's lowercase form.
+
+Only keys the preset names are touched. The game's own `[ServerSettings]`
+entries, the other sections, and the file's CRLF line endings are all preserved.
+
+`pixark_validate_preset` warns — never errors — about keys absent from
+`PIXARK_KNOWN_SETTINGS`, a snapshot of PixARK's shipped
+`DefaultGameUserSettings.ini` (build 25052834). It catches `XPMultipler` without
+rejecting a key a newer build has added. Regenerate it with:
+
+```bash
+docker run --rm -v pixark-install-<env>:/v alpine sh -c \
+  'grep -oE "^[A-Za-z_]+=" /v/ShooterGame/Config/DefaultGameUserSettings.ini | tr -d = | sort -u'
+```
+
+### The multiplier cache
+
+PixARK caches server multipliers in three shipped blueprints (note the upstream
+typo — `Sever`, not `Server`):
+
+```
+ShooterGame/Content/Mods/CubeWorld/Blueprints/CW_SeverMultiplier_PVE.uasset
+                                              CW_SeverMultiplier_PVP.uasset
+                                              CW_SeverMultiplier_PVPforever.uasset
+```
+
+Deleting them is the widely cited fix for "my `GameUserSettings.ini` changes are
+ignored". The entrypoint **reports** them when the applied settings change but
+deliberately does not delete them, because deleting them turned out to be much
+harder to undo than expected:
+
+- They are shipped content in the install volume, which every instance in an
+  environment shares.
+- With the files gone, the server stops loading the `CW_SeverMultiplier_*`
+  classes altogether — measured, not assumed.
+- **A plain `steamcmd app_update ... validate` does not put them back.** It
+  reports `Success! App '824360' fully installed` and leaves them missing. The
+  Steam depot manifests in the install root do not index CubeWorld content at
+  all, so validate has nothing to compare against.
+
+Recovering them needs a forced re-resolve — delete the appmanifest first, then
+validate, with every instance in the environment stopped:
+
+```bash
+docker run --rm -v pixark-install-<env>:/v alpine \
+  rm -f /v/steamapps/appmanifest_824360.acf
+# then start one instance; the entrypoint's retry loop handles the
+# "Missing configuration" that the first attempt after this reliably hits
+```
+
+So clear the cache by hand only if a swap genuinely appears to be ignored, and
+expect a full 3GB re-verify to undo it. Players may need to clear the same files
+in their own client install.
+
 ## Wine noise in the logs
 
 A healthy headless start still prints these. They are cosmetic — there is no

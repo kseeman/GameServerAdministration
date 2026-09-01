@@ -1,8 +1,8 @@
 {
   "metadata": {
     "name": "Default",
-    "description": "Vanilla PixARK settings - no additional multipliers",
-    "version": "1.0",
+    "description": "Vanilla PixARK settings - no multiplier overrides",
+    "version": "2.0",
     "created": "2026-04-20T00:00:00Z",
     "inherits": null
   },

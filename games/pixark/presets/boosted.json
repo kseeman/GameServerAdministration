@@ -1,0 +1,17 @@
+{
+  "metadata": {
+    "name": "Boosted",
+    "description": "2x harvest and XP, 3x taming, gentler survival drain",
+    "version": "1.0",
+    "created": "2026-09-01T00:00:00Z",
+    "inherits": "default.json"
+  },
+  "game_settings": {
+    "HarvestAmountMultiplier": 2.0,
+    "XPMultiplier": 2.0,
+    "TamingSpeedMultiplier": 3.0,
+    "PlayerCharacterFoodDrainMultiplier": 0.75,
+    "PlayerCharacterWaterDrainMultiplier": 0.75,
+    "ResourcesRespawnPeriodMultiplier": 0.5
+  }
+}

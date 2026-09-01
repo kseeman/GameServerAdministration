@@ -176,6 +176,132 @@ elif grep -q '^SessionName=' "$gus_ini" 2>/dev/null; then
     ' "$gus_ini" > "${gus_ini}.tmp" && mv -f "${gus_ini}.tmp" "$gus_ini"
 fi
 
+# --- Preset [ServerSettings] ---
+#
+# PIXARK_SERVER_SETTINGS_B64 is base64 of newline-separated Key=Value pairs
+# built from the active preset's game_settings. They are merged into
+# GameUserSettings.ini here, on every start, for two reasons:
+#
+#   1. PixARK has no live config reload. The binary has no dynamicconfig /
+#      ForceUpdateDynamicConfig machinery (unlike ARK) and RCON exposes no
+#      reload command, so [ServerSettings] is only read at process start.
+#      Config swaps are necessarily cold.
+#   2. GameUserSettings.ini is widely reported to reset itself across restarts.
+#      Re-applying every start makes the preset authoritative regardless.
+#
+# Only keys named by the preset are touched; the rest of the game's file is
+# preserved, including its CRLF line endings.
+apply_server_settings() {
+    local ini="$1" want_file="$2" remove_file="$3"
+    awk -v sf="$want_file" -v rf="$remove_file" '
+        BEGIN {
+            while ((getline line < sf) > 0) {
+                if (line == "") continue
+                eq = index(line, "=")
+                if (eq == 0) continue
+                k = substr(line, 1, eq - 1)
+                want[k] = substr(line, eq + 1)
+                order[++n] = k
+            }
+            close(sf)
+            while ((getline line < rf) > 0) {
+                if (line != "") drop[line] = 1
+            }
+            close(rf)
+        }
+        function flush_remaining(   i, k) {
+            for (i = 1; i <= n; i++) {
+                k = order[i]
+                if (!(k in applied)) { printf "%s=%s\r\n", k, want[k]; applied[k] = 1 }
+            }
+        }
+        /^\[/ {
+            if (in_ss) { flush_remaining(); in_ss = 0 }
+            if ($0 ~ /^\[ServerSettings\]/) { in_ss = 1; seen_ss = 1 }
+            print; next
+        }
+        {
+            if (in_ss) {
+                eq = index($0, "=")
+                if (eq > 0) {
+                    k = substr($0, 1, eq - 1)
+                    if (k in want) { printf "%s=%s\r\n", k, want[k]; applied[k] = 1; next }
+                    # Previously set by a preset, not set by this one: drop the
+                    # line so the game falls back to its own built-in default.
+                    if (k in drop) next
+                }
+            }
+            print
+        }
+        END {
+            if (in_ss) flush_remaining()
+            else if (!seen_ss && n > 0) { printf "[ServerSettings]\r\n"; flush_remaining() }
+        }
+    ' "$ini"
+}
+
+# The state file records exactly which Key=Value pairs the previous start
+# applied. Without it a swap could only ever add keys: going from a preset with
+# overrides back to one without would leave the old multipliers in place, so the
+# server kept running boosted rates while .state reported "default".
+settings_state="${save_dir}/.pixark-applied-settings"
+want_file=$(mktemp); prev_file=$(mktemp); remove_file=$(mktemp)
+
+: > "$want_file"
+if [[ -n "${PIXARK_SERVER_SETTINGS_B64:-}" ]]; then
+    printf '%s' "$PIXARK_SERVER_SETTINGS_B64" | base64 -d > "$want_file" 2>/dev/null || : > "$want_file"
+fi
+if [[ -f "$settings_state" ]]; then cp "$settings_state" "$prev_file"; else : > "$prev_file"; fi
+
+# Keys a previous preset set that this one does not mention. Only lines that
+# actually contain '=' count, so a truncated or legacy state file is ignored
+# rather than being mistaken for a setting name to revert.
+comm -23 <(grep '=' "$prev_file" | cut -d= -f1 | sort -u) \
+         <(grep '=' "$want_file" | cut -d= -f1 | sort -u) > "$remove_file"
+
+if [[ -s "$want_file" || -s "$remove_file" ]]; then
+    if [[ -s "$want_file" ]]; then
+        echo ">>> Applying $(grep -c '=' "$want_file") preset setting(s) to [ServerSettings]"
+        # awk, not sed: the decoded payload has no trailing newline, and awk's
+        # print always terminates the record so the next log line starts cleanly.
+        awk '{ print "        " $0 }' "$want_file"
+    fi
+    if [[ -s "$remove_file" ]]; then
+        echo ">>> Reverting $(grep -c . "$remove_file") setting(s) to PixARK defaults"
+        awk '{ print "        " $0 }' "$remove_file"
+    fi
+
+    if apply_server_settings "$gus_ini" "$want_file" "$remove_file" > "${gus_ini}.tmp"; then
+        mv -f "${gus_ini}.tmp" "$gus_ini"
+
+        # PixARK caches server multipliers in three shipped blueprint assets
+        # (note the upstream typo: Sever, not Server). Deleting them is the
+        # widely cited fix for "my GameUserSettings.ini changes are ignored".
+        #
+        # This deliberately only *reports* them rather than deleting them. They
+        # are shipped game content in the install volume, which every instance in
+        # an environment shares, and the only thing that puts them back is
+        # `steamcmd validate` — which pixark_start_server refuses to run while
+        # another instance is live. Automatic deletion would therefore strip
+        # content from a shared install with no reliable restore path, to work
+        # around a problem we have not actually confirmed. Clear them by hand if
+        # a swap really does appear to be ignored.
+        if ! cmp -s "$want_file" "$prev_file"; then
+            echo ">>> Settings changed. If they appear to be ignored in game, the"
+            echo ">>> client and server multiplier caches may be stale. Clear with:"
+            echo ">>>   rm -f ${PIXARK_DIR}/ShooterGame/Content/Mods/CubeWorld/Blueprints/CW_SeverMultiplier_*.uasset"
+            echo ">>> then stop every pixark instance in this environment and start"
+            echo ">>> one, so steamcmd validate restores them. Players may need to"
+            echo ">>> clear the same files in their own client install."
+        fi
+        cp "$want_file" "$settings_state"
+    else
+        echo ">>> WARNING: failed to merge preset settings; leaving the ini untouched"
+        rm -f "${gus_ini}.tmp"
+    fi
+fi
+rm -f "$want_file" "$prev_file" "$remove_file"
+
 # Validate map name; fall back to default for anything unrecognized. Keep this
 # in step with the .umap files actually shipped in
 # ShooterGame/Content/**/Maps — a name that is not on this list is silently

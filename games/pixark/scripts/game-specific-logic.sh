@@ -26,6 +26,44 @@ PIXARK_PRESETS_DIR="${REPO_ROOT}/games/pixark/presets"
 PIXARK_VOLUME_MOUNT="/home/steam/PixARK-dedicated/ShooterGame/Saved"
 PIXARK_IMAGE_TAG="pixark-server:latest"
 
+# GameUserSettings.ini [ServerSettings] keys PixARK ships in
+# ShooterGame/Config/DefaultGameUserSettings.ini, snapshotted from build
+# 25052834. Used only to warn about typos in presets — never to reject a key,
+# since a newer build may add settings this list has not seen.
+PIXARK_KNOWN_SETTINGS="
+    AllowFlyerCarryPvE AllowThirdPersonPlayer AlwaysNotifyPlayerLeft
+    CWMaxDrawDistance DayCycleSpeedScale DayTimeSpeedScale DelayRegisterServer
+    DifficultyOffset DinoCharacterFoodDrainMultiplier
+    DinoCharacterHealthRecoveryMultiplier DinoCharacterStaminaDrainMultiplier
+    DinoCountMultiplier DinoDamageMultiplier DinoResistanceMultiplier
+    DisableDinoDecayPvE DisableStructureDecayPvE DoNotCreateAnimal
+    DoNotCreateVegetation DontAlwaysNotifyPlayerJoined EnablePvPGamma
+    FrameRateLimit FullscreenMode GlobalVoiceChat GraphicsQuality
+    HarvestAmountMultiplier HarvestHealthMultiplier MaxNumConfigCharacterSaves
+    MaxNumConfigMapsSaves MaxPersonalPlatformSaddleLimit MaxPersonalTamedDinos
+    MaxTributeCharacters MaxTributeDinos MaxTributeItems
+    MinimumDinoReuploadInterval NewMaxStructuresInRange NightTimeSpeedScale
+    OfficialServersURL OnGodMode PlayerCharacterFoodDrainMultiplier
+    PlayerCharacterHealthRecoveryMultiplier
+    PlayerCharacterStaminaDrainMultiplier PlayerCharacterWaterDrainMultiplier
+    PlayerDamageMultiplier PlayerMaxStepHeightOverride
+    PlayerResistanceMultiplier ProximityChat PvEStructureDecayPeriodMultiplier
+    RecommendServersURL ReferralServerInterval ResourceDropQuantityMultiplier
+    ResourceRefreshPeriodMultiplier ResourcesRespawnPeriodMultiplier
+    ServerAllowThirdPersonPlayer ServerCrosshair ServerHardcore ServerPVE
+    ShowFloatingDamageText ShowMapPlayerLocation StructureDamageMultiplier
+    StructureResistanceMultiplier TamingSpeedMultiplier
+    TributeCharacterExpirationSeconds TributeDinoExpirationSeconds
+    TributeItemExpirationSeconds Version XPMultiplier bAllowFlyerCarryPvE
+    bAutoThirdPersonRiding bDisableMaxFrameRate bPreventCrosshair
+    bShowGuideTipUI bUseDesktopResolution bUseKillPlayerWhenExitTooLong
+    AllowHitMarkers AutoSavePeriodMinutes BlueprintTimeToCraftMultiplier
+    KickIdlePlayersPeriod ListenServerTetherDistanceMultiplier MaxTamedDinos
+    PerPlatformMaxStructuresMultiplier PvEDinoDecayPeriodMultiplier
+    RCONServerGameLogBuffer RaidDinoCharacterFoodDrainMultiplier
+    StructurePreventResourceRadiusMultiplier TimeForFullRepairMultiplier
+"
+
 # --- Image build ---
 #
 # Upstream silentmecha/pixark-linux ships with a wine64 reference in entry.sh
@@ -159,6 +197,29 @@ pixark_start_server() {
     local additional_args
     additional_args=$(echo "$resolved" | jq -r '.game_settings.additional_args // ""')
 
+    # Every game_settings key other than additional_args is a
+    # GameUserSettings.ini [ServerSettings] key, applied by the entrypoint on
+    # each start. additional_args stays separate because it is argv, not config.
+    #
+    # Booleans are emitted as True/False — PixARK, like ARK, will not parse
+    # JSON's lowercase true/false. Base64 avoids having to smuggle newlines and
+    # arbitrary punctuation through envsubst and the compose environment.
+    local server_settings server_settings_b64
+    server_settings=$(echo "$resolved" | jq -r '
+        (.game_settings // {})
+        | del(.additional_args)
+        | to_entries[]
+        | "\(.key)=\(
+            if (.value | type) == "boolean" then (if .value then "True" else "False" end)
+            else (.value | tostring) end
+          )"
+    ')
+    server_settings_b64=$(printf '%s' "$server_settings" | base64 -w0)
+
+    if [[ -n "$server_settings" ]]; then
+        log_info "Preset '$preset' carries $(printf '%s\n' "$server_settings" | grep -c '=') [ServerSettings] override(s)"
+    fi
+
     # Infrastructure + per-instance from env config
     local env_config
     env_config=$(get_game_env_config "pixark" "$env")
@@ -287,6 +348,7 @@ pixark_start_server() {
     CLUSTER_ID="$cluster_id" \
     ALT_SAVE_DIR="$alt_save_dir" \
     ADDITIONAL_ARGS="$additional_args" \
+    SERVER_SETTINGS_B64="$server_settings_b64" \
     SFT_USER="$sft_user" \
     SFT_PASS="$sft_pass" \
     SFT_PORT="$sft_port" \
@@ -689,6 +751,26 @@ pixark_validate_preset() {
             log_error "Parent preset not found: $parent_file"
             return 1
         fi
+    fi
+
+    # Typo check against the keys PixARK itself ships in
+    # ShooterGame/Config/DefaultGameUserSettings.ini. A warning, never an error:
+    # the list is a snapshot (build 25052834) and a future build may add keys.
+    # Regenerate with:
+    #   docker run --rm -v pixark-install-<env>:/v alpine sh -c \
+    #     'grep -oE "^[A-Za-z_]+=" /v/ShooterGame/Config/DefaultGameUserSettings.ini | tr -d = | sort -u'
+    # Split on any whitespace via tr rather than relying on word splitting —
+    # sourcing server-utils.sh leaves IFS without a space, so `printf '%s\n' $VAR`
+    # would yield whole lines and silently match nothing.
+    local unknown
+    unknown=$(jq -r '(.game_settings // {}) | keys[]' "$preset_file" 2>/dev/null \
+        | grep -vxF 'additional_args' \
+        | grep -vxF -f <(printf '%s' "$PIXARK_KNOWN_SETTINGS" | tr -s '[:space:]' '\n' | grep -v '^$') || true)
+    if [[ -n "$unknown" ]]; then
+        log_warning "Preset $(basename "$preset_file") has setting(s) not in PixARK's shipped defaults:"
+        while IFS= read -r k; do
+            [[ -n "$k" ]] && log_warning "  $k  (typo, or added by a newer build)"
+        done <<< "$unknown"
     fi
 
     log_success "PixARK preset validation passed: $preset_file"
