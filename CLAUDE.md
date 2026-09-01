@@ -61,6 +61,12 @@ game × instance × environment with running state, active preset and ports, plu
 for every `server-manager.sh` operation, a preset picker, a backup browser and a streamed
 output pane.
 
+The preset picker serves both `config-swap` and `start`. On a swap it disables the
+already-active preset; on a start it prepends an "instance default" entry that sends no
+`--preset` at all, leaving `server-manager.sh` to resolve the instance's `default_preset`.
+The `s` key stays a fast path that starts on that default without opening the picker —
+choosing a specific preset is done from the actions menu (`enter`).
+
 **The rule it is built around: bash owns all writes, Go owns all reads.** The TUI reads
 `games/*/environments/*.json`, `games/*/presets/*.json`, `.state/*.preset`, `backups/**/*.meta.json`
 and `docker ps` natively, and performs every mutation by exec'ing `scripts/core/server-manager.sh`.

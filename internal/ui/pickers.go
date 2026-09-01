@@ -66,8 +66,10 @@ func (m Model) openActions() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// openPresets lists the game's presets for a config-swap.
-func (m Model) openPresets() (tea.Model, tea.Cmd) {
+// openPresets lists the game's presets, for either a config-swap or a start.
+// op selects which: OpConfigSwap disables the already-active preset, OpStart
+// prepends an "instance default" entry that sends no --preset at all.
+func (m Model) openPresets(op runner.Op) (tea.Model, tea.Cmd) {
 	inst, ok := m.current()
 	if !ok {
 		return m, nil
@@ -78,7 +80,23 @@ func (m Model) openPresets() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	items := make([]pickerItem, 0, len(presets))
+	items := make([]pickerItem, 0, len(presets)+1)
+
+	if op == runner.OpStart {
+		// An empty preset means server-manager.sh resolves the instance's
+		// default_preset itself, which is the behaviour anyone who just hits
+		// start expects. Listed first so it stays the zero-thought choice.
+		def := inst.Info.DefaultPreset
+		if def == "" {
+			def = "default"
+		}
+		items = append(items, pickerItem{
+			Title: "instance default",
+			Desc:  styMuted.Render("start with " + def + ", as configured for this instance"),
+			Value: "",
+		})
+	}
+
 	for _, p := range presets {
 		desc := p.Metadata.Description
 		if parent := p.InheritsPreset(); parent != "" {
@@ -86,18 +104,24 @@ func (m Model) openPresets() (tea.Model, tea.Cmd) {
 		}
 		item := pickerItem{Title: p.Name, Desc: desc, Value: p.Name}
 		// Swapping to the preset already active is a no-op worth flagging.
-		if p.Name == inst.Preset {
+		// On start there is nothing running, so nothing to exclude.
+		if op == runner.OpConfigSwap && p.Name == inst.Preset {
 			item.Disabled = true
 			item.Reason = "already active"
 		}
 		items = append(items, item)
 	}
 
-	m.pick = newPicker(
-		fmt.Sprintf("Config-swap — %s / %s @ %s (currently %s)",
-			inst.Game, inst.Name, inst.Env, inst.DisplayPreset()),
-		items, m.height-4)
+	title := fmt.Sprintf("Config-swap — %s / %s @ %s (currently %s)",
+		inst.Game, inst.Name, inst.Env, inst.DisplayPreset())
+	if op == runner.OpStart {
+		title = fmt.Sprintf("Start — %s / %s @ %s (preset)",
+			inst.Game, inst.Name, inst.Env)
+	}
+
+	m.pick = newPicker(title, items, m.height-4)
 	m.pick.width = m.width
+	m.presetOp = op
 	m.prev = m.mode
 	m.mode = modePresets
 	return m, nil
@@ -192,7 +216,9 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		op := selected.Value.(runner.Op)
 		switch op {
 		case runner.OpConfigSwap:
-			return m.openPresets()
+			return m.openPresets(runner.OpConfigSwap)
+		case runner.OpStart:
+			return m.openPresets(runner.OpStart)
 		case runner.OpRestore:
 			return m.openBackups()
 		default:
@@ -201,8 +227,12 @@ func (m Model) updatePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	case modePresets:
+		op := m.presetOp
+		if op == "" {
+			op = runner.OpConfigSwap
+		}
 		req := runner.Request{
-			Op:       runner.OpConfigSwap,
+			Op:       op,
 			Game:     inst.Game,
 			Instance: inst.Name,
 			Env:      inst.Env,

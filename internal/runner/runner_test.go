@@ -101,6 +101,25 @@ func TestConfigSwapCarriesPreset(t *testing.T) {
 	}
 }
 
+func TestStartCarriesPresetWhenChosen(t *testing.T) {
+	req := Request{Op: OpStart, Game: "pixark", Instance: "terracrypt", Env: "staging", Preset: "boosted"}
+	args := req.Args()
+	if !contains(args, "--preset") || !contains(args, "boosted") {
+		t.Errorf("start lost its preset: %v", args)
+	}
+}
+
+// The "instance default" entry in the start preset picker sends an empty
+// Preset, and server-manager.sh then resolves the instance's default_preset.
+// Passing `--preset ""` instead would make the script look for presets/.json
+// and fail, which is exactly the bug this pairing fixes.
+func TestStartOmitsPresetFlagWhenUnset(t *testing.T) {
+	req := Request{Op: OpStart, Game: "pixark", Instance: "terracrypt", Env: "staging"}
+	if contains(req.Args(), "--preset") {
+		t.Errorf("start with no preset must omit --preset entirely, got %v", req.Args())
+	}
+}
+
 func TestValidateCatchesMissingFlags(t *testing.T) {
 	cases := map[string]Request{
 		"config-swap without preset": {Op: OpConfigSwap, Game: "ark", Instance: "island", Env: "production"},

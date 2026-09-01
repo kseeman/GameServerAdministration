@@ -67,7 +67,14 @@ func describeOperation(repo *config.Repo, req runner.Request, inst inventory.Ins
 		if req.Preset != "" {
 			lines = append(lines, "start with preset "+req.Preset)
 		} else {
-			lines = append(lines, "start")
+			// No --preset is sent, so server-manager.sh resolves the instance's
+			// default_preset. Name it, rather than leaving the operator to guess
+			// which settings the server is about to come up on.
+			def := inst.Info.DefaultPreset
+			if def == "" {
+				def = "default"
+			}
+			lines = append(lines, "start with preset "+def+" (this instance's default)")
 		}
 
 	case runner.OpStop:

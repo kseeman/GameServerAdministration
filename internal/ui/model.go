@@ -63,6 +63,12 @@ type Model struct {
 	pick    picker
 	confirm confirmModel
 
+	// Which operation the preset picker is currently serving. Both start and
+	// config-swap present the same list, but they differ: a swap forbids the
+	// already-active preset, while a start offers "instance default" and has no
+	// active preset to exclude.
+	presetOp runner.Op
+
 	// A pending request waiting on confirmation.
 	pending runner.Request
 

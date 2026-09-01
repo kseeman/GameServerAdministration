@@ -76,6 +76,9 @@ func (m Model) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 	// Direct-action shortcuts. Each still routes through the confirm modal.
+	// "s" stays the fast path: start on the instance's configured
+	// default_preset, no picker. Choosing a specific preset is done from the
+	// actions menu (enter), which routes start through openPresets.
 	case "s":
 		return m.begin(runner.OpStart)
 	case "x":
@@ -83,7 +86,7 @@ func (m Model) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "R":
 		return m.begin(runner.OpRestart)
 	case "c":
-		return m.openPresets()
+		return m.openPresets(runner.OpConfigSwap)
 	case "b":
 		return m.begin(runner.OpBackup)
 	case "S":

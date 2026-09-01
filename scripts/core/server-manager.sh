@@ -190,11 +190,30 @@ start_server() {
         fi
     fi
     
+    # --preset is optional on start, but every plugin builds its preset path as
+    # "${<GAME>_PRESETS_DIR}/${preset}.json" with no defaulting of its own — so an
+    # omitted preset became a lookup of "presets/.json" and start failed outright.
+    # That made `start` unusable without --preset for all six games, and the gsa
+    # TUI never sends one (internal/ui/pickers.go routes only config-swap and
+    # restore through a picker). Resolve the instance's default_preset here, once,
+    # rather than repeating the fallback in every plugin.
+    if [[ -z "$PRESET" ]]; then
+        local env_config
+        env_config=$(get_game_env_config "$GAME" "$ENVIRONMENT")
+        if [[ -f "$env_config" ]]; then
+            PRESET=$(jq -r ".instances.\"${INSTANCE}\".default_preset // \"default\"" \
+                "$env_config" 2>/dev/null || echo "default")
+        else
+            PRESET="default"
+        fi
+        log_info "No --preset given; using instance default: $PRESET"
+    fi
+
     # Load game plugin and call start function
     if ! load_game_plugin "$GAME" "$ENVIRONMENT"; then
         return 1
     fi
-    
+
     if [[ "$DRY_RUN" == true ]]; then
         log_info "[DRY-RUN] Would call: ${GAME}_start_server $INSTANCE $ENVIRONMENT $BACKUP_FILE $PRESET"
         return 0
